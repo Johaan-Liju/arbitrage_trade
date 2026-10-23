@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GoldLens · Local research</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head>
+<body><main><header><a href="/" class="brand">◈ GoldLens</a><span>LOCAL RESEARCH / 01</span></header>
+<section class="intro"><p class="eyebrow">A clearer view of gold contracts</p><h1>Every price.<br>In its proper context.</h1><p>Explore a contract through the information available at a chosen moment.</p></section>
+<div class="notice"><strong>SYNTHETIC DATA ONLY</strong><span>Invented prices and contract specifications. No live market connection.</span></div>
+<section class="workspace"><div><h2>Contract explorer</h2><p id="contract">Loading contract…</p></div><form id="query"><label for="asof">Information available as of (UTC)</label><div class="controls"><input id="asof" name="asof" type="datetime-local" step="1" value="2026-10-22T16:01:00" required><button>Apply cutoff</button></div></form></section>
+<p id="status" role="status" aria-live="polite">Checking local service…</p>
+<section class="metrics"><article><span>As-of sample mean</span><strong id="mean">—</strong><small>USD / troy ounce · synthetic</small></article><article><span>Available observations</span><strong id="count">—</strong><small>Observed and available before cutoff</small></article><article><span>Real data</span><strong class="muted">Not connected</strong><small>Separate import required</small></article></section>
+<section><h2>Price observations</h2><div class="table-wrap"><table><thead><tr><th>Trading date</th><th>Contract symbol</th><th>Exact expiry</th><th>Spec version</th><th>Price (USD/oz)</th><th>Available at (UTC)</th></tr></thead><tbody id="prices"></tbody></table></div></section>
+<footer>Research scaffold. No trade execution or guaranteed arbitrage. Costs, liquidity, execution and settlement risks are not modeled.</footer></main></body></html>

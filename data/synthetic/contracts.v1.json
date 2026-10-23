@@ -1,0 +1,12 @@
+[
+  {
+    "dataset": "synthetic",
+    "specVersion": "demo-v1",
+    "symbol": "DEMO-GOLD-202612",
+    "expiry": "2026-12-18",
+    "currency": "USD",
+    "unit": "troy_ounce",
+    "availableAt": "2026-01-01T00:00:00Z",
+    "description": "Invented demonstration contract; not an exchange specification"
+  }
+]
