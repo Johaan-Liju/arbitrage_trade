@@ -1,8 +1,19 @@
 {
   "name": "goldlens",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "engines": { "node": ">=24" },
-  "scripts": { "start": "node src/server.js", "test": "node --test", "health": "node scripts/health-check.mjs", "check": "node --check src/server.js && node --check src/domain.js && node --check dist/app.js" }
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "start": "npm --prefix frontend start",
+    "build": "npm --prefix frontend run build",
+    "check": "npm --prefix frontend run typecheck",
+    "test": "\".venv\\Scripts\\python.exe\" -m pytest backend/tests -q",
+    "health": "\".venv\\Scripts\\python.exe\" scripts/health-check.py",
+    "test:browser": "npm --prefix frontend run test:browser",
+    "start:legacy": "node src/server.js",
+    "test:legacy": "node --test",
+    "health:legacy": "node scripts/health-check.mjs"
+  }
 }

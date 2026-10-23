@@ -7,4 +7,4 @@
 - Never claim guaranteed arbitrage. Research signals must disclose relevant costs, liquidity, execution, and settlement uncertainty; do not execute trades.
 - Ask before deploying, pushing, installing invasive system software, or inspecting third-party private data. Do not read credentials or unrelated personal files.
 - Run relevant validation and record exact commands and actual results in docs/BUILD_LOG.md. Distinguish observed facts, design decisions, and unresolved questions.
-- Use Node built-ins for the initial slice; no dependency installation is required. Bind the service only to loopback.
+- The initial Node-only slice is retained as legacy reference. The current user-authorized stack is Next.js/TypeScript/Tailwind/shadcn with FastAPI/Pandas/SQLite. Keep dependencies project-local and bind both services only to loopback. The frontend displays API results; business calculations belong in the backend.
