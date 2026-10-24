@@ -140,13 +140,13 @@ def simulate(pair, request):
             curve.append({"trading_date":day,"equity":equity,"net_pnl":net,"drawdown":dd,"reason":"Raw-quote mark to market; costs deducted"})
         if position and pending is None and (day>=exit_trigger or (event["z_score"] is not None and abs(event["z_score"])<=request.exit_z)):
             pending = {"action":"EXIT","date":day,"decision_at":event["decision_at"],"reason":"Scheduled safe exit/end" if day>=exit_trigger else "Z-score converged within exit threshold"}
-        elif not position and not pending and not filled_exit and event["status"]=="INVESTIGATE":
+        elif not position and not pending and not filled_exit and event["status"]=="Investigate":
             reasons = blocked + (["Entry too near safe exit/end date"] if day>=exit_trigger else [])
             if reasons:
                 reject(day,"ENTRY","; ".join(reasons))
             else:
                 pending = {"action":"ENTRY","date":day,"decision_at":event["decision_at"],"reason":event["reason"],"z":event["z_score"]}
-        elif event["status"]=="REJECTED":
+        elif event["status"]=="Insufficient data":
             reject(day,"SIGNAL",event["reason"])
     if pending:
         reject(pending["date"],pending["action"],"No eligible later observation to fill pending order")

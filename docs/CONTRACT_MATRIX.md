@@ -36,4 +36,4 @@ No operational real specification or real price dataset has been fabricated. All
 2. GOLDTEN example: ₹75,000 / 10 × 999/999 = **₹7,500/g**.
 3. GOLDGUINEA example: ₹60,080 / 8 × 999/999 = **₹7,510/g**. A=TEN minus B=GUINEA raw comparison spread is **−₹10/g**.
 
-These are comparison conventions. Expected basis is fitted only on prior available raw spreads. Residual equals raw spread minus that expected basis. A historical residual baseline is also prior-only. Neither purity conversion nor a statistical residual estimates executable profit.
+These are comparison conventions. Spread is left minus right in normalized 999-purity INR/gram. Its z-score uses only preceding eligible aligned spreads: (current spread - prior mean) / prior sample standard deviation (ddof=1). Neither purity conversion nor a statistical spread signal estimates executable profit.

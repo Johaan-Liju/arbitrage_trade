@@ -153,23 +153,12 @@ def pair_catalog(state: dict, selected: dict) -> dict:
             "status": "ALIGNED" if aligned else "INSUFFICIENT_DATA",
             "reason": "Exact expiry and latest trading date match; delivery/settlement basis still matters" if aligned else "No matching latest trading date; no forward fill or stale-price substitution"})
     return {"matches": matches, "unmatched": unmatched, "normalization": rows, "formula": FORMULA,
-            "unit": "INR per gram (999 purity)", "spread_direction": "A minus B"}
+            "unit": "INR per gram (999 purity)", "spread_direction": "left minus right"}
 
 
 def quote_summary(rows, spec):
-    """Keep existing single-contract indicators, with full reference availability in historical replay."""
-    def signal(history):
-        if len(history) < 6:
-            return {"state": "Warming up", "baseline": None, "deviation_pct": None, "history_count": max(0, len(history) - 1)}
-        baseline = sum(Decimal(r["quoted_price_decimal"]) for r in history[-6:-1]) / 5
-        deviation = (Decimal(history[-1]["quoted_price_decimal"]) / baseline - 1) * 100
-        return {"state": "Above baseline" if deviation > Decimal("0.2") else "Below baseline" if deviation < Decimal("-0.2") else "Within range",
-                "baseline": float(baseline), "deviation_pct": float(deviation), "history_count": 5}
-    events = []
-    for row in rows:
-        decision = row["normalized_available_at"]
-        history = [r for r in rows if r["observed_at"] <= decision and r["available_at"] <= decision and r["normalized_available_at"] <= decision and r["trading_date"] <= row["trading_date"]]
-        events.append({"trading_date": row["trading_date"], "decision_at": decision, "price": row["price"], "spec_version": spec["spec_version"], **signal(history)})
+    """Descriptive quote metrics only. Pair signals are computed by the pair endpoint."""
+    events = []  # Signals belong exclusively to explicitly matched pairs.
     mean = sum(Decimal(r["quoted_price_decimal"]) for r in rows[-5:]) / min(5, len(rows)) if rows else None
     change = (Decimal(rows[-1]["quoted_price_decimal"]) / Decimal(rows[-2]["quoted_price_decimal"]) - 1) * 100 if len(rows) > 1 else None
     return {"mean_5": float(mean) if mean is not None else None, "change_pct": float(change) if change is not None else None, "count": len(rows)}, events

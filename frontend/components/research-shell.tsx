@@ -13,14 +13,14 @@ import { PairWorkspace } from "@/components/pair-workspace";
 const navigation = [
   { view: "dashboard", label: "Prices", hint: "Follow one contract", href: "/", icon: LayoutDashboard },
   { view: "compare", label: "Compare prices", hint: "See contracts side by side", href: "/compare", icon: ArrowDownUp },
-  { view: "signals", label: "Price signals", hint: "Spot changes from the average", href: "/signals", icon: Activity },
+  { view: "signals", label: "Price signals", hint: "Compare matched pair spreads", href: "/signals", icon: Activity },
   { view: "backtest", label: "Signal history", hint: "See how signals looked in the past", href: "/backtest", icon: Timer },
 ] as const;
 const headings: Record<View, [string, string]> = {
   dashboard: ["Follow a gold contract", "Choose a contract below to see its price, recent movement and trading activity."],
   compare: ["Compare gold prices", "See prices per gram across contracts. The contract you choose below is the reference for each price difference."],
-  signals: ["Is a price above or below its average?", "Compare the selected exact-expiry pair against prior paired history. These signals describe price movement; they are not trading advice."],
-  backtest: ["See past price signals", "Choose a contract to replay its signals using only information available at each historical decision time."],
+  signals: ["Is the matched pair spread unusual?", "Compare the selected exact-expiry pair against prior paired history. Rolling z-scores compare left-minus-right spreads with preceding eligible spreads. Investigate is a research flag."],
+  backtest: ["See past price signals", "Choose an exact contract pair to replay spread signals using only information available at each historical decision time."],
 };
 
 export function ResearchShell({ view }: { view: View }) {
@@ -113,7 +113,7 @@ export function ResearchShell({ view }: { view: View }) {
           {view === "dashboard" && data.latest && <Dashboard data={data} />}{view !== "dashboard" && <PairWorkspace key={data.dataset + data.spec.contract_id + data.as_of} data={data} contracts={contracts} view={view} />}
         </>}
         {data && data.issues.length > 0 && <Card className="mt-5 p-5"><h2 className="font-medium">Blocked price records</h2>{data.issues.map((issue, i) => <p className="mt-2 text-xs" key={i}>{issue.contract_id} / {issue.trading_date}: {issue.code} - {issue.reason}</p>)}</Card>}
-        <details className="mt-6 rounded-lg border border-border bg-card p-4 text-sm"><summary>Terms explained</summary><dl className="mt-4 grid gap-4 text-sm leading-6 sm:grid-cols-2"><div><dt className="font-medium">Quote price</dt><dd className="text-muted-foreground">The price for the contract&apos;s stated weight of gold. Use Compare prices to see a common price per gram.</dd></div><div><dt className="font-medium">Trading volume</dt><dd className="text-muted-foreground">The number of contracts traded during the recorded period.</dd></div><div><dt className="font-medium">Open interest</dt><dd className="text-muted-foreground">The number of contracts still open, rather than closed or settled.</dd></div><div><dt className="font-medium">Baseline and signals</dt><dd className="text-muted-foreground">Paired research uses prior available spreads to estimate a baseline. A z-score describes the distance from that baseline in standard deviations.</dd></div></dl></details>
+        <details className="mt-6 rounded-lg border border-border bg-card p-4 text-sm"><summary>Terms explained</summary><dl className="mt-4 grid gap-4 text-sm leading-6 sm:grid-cols-2"><div><dt className="font-medium">Quote price</dt><dd className="text-muted-foreground">The price for the contract&apos;s stated weight of gold. Use Compare prices to see a common price per gram.</dd></div><div><dt className="font-medium">Trading volume</dt><dd className="text-muted-foreground">The number of contracts traded during the recorded period.</dd></div><div><dt className="font-medium">Open interest</dt><dd className="text-muted-foreground">The number of contracts still open, rather than closed or settled.</dd></div><div><dt className="font-medium">Baseline and signals</dt><dd className="text-muted-foreground">Spread is left minus right in 999-purity INR/gram. A z-score measures its distance from the prior spread mean in sample standard deviations (ddof=1), excluding the current spread.</dd></div></dl></details>
         {data && <details className="mt-3 rounded-lg border border-border p-4 text-sm"><summary className="text-muted-foreground">Technical details / API response</summary><pre data-testid="api-response" className="mt-4 max-h-80 overflow-auto text-xs leading-5 text-muted-foreground">{JSON.stringify(data, null, 2)}</pre></details>}
         <footer className="mt-8 border-t border-border py-5 text-xs leading-6 text-muted-foreground"><CircleHelp className="mr-1.5 inline size-3" />{data?.disclaimer ?? "Synthetic research only. No guaranteed arbitrage. Fees, taxes, slippage, liquidity, execution and settlement uncertainty matter. No trade execution."}</footer>
       </main>

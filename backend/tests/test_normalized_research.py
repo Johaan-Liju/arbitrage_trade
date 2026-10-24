@@ -169,6 +169,33 @@ def test_missing_leg_no_fill_and_no_latest_gap(app):
     assert match["status"] == "INSUFFICIENT_DATA" and match["latest_spread_999_inr_per_gram"] is None
     pair = client.post("/api/pair", json={"contract_a": A, "contract_b": B, "as_of": DEFAULT_AS_OF}).json()
     assert len(pair["history"]) == 38 and pair["quality"]["missing_dates"]
+    assert pair["status"] == "Insufficient data" and pair["latest"]["raw_pair_spread"] is None
+
+
+def test_pair_api_settings_and_retired_percentage_signals(app):
+    client, _ = app
+    req = {"contract_a": A, "contract_b": B, "as_of": DEFAULT_AS_OF}
+    for settings in ({"lookback": 1}, {"lookback": 251}, {"lookback": 2.5},
+                     {"lookback": 3, "min_observations": 4}, {"entry_z": 0}, {"entry_z": 101}):
+        assert client.post("/api/pair", json={**req, **settings}).status_code == 422
+    body = client.post("/api/pair", json={**req, "lookback": 7, "min_observations": 3, "entry_z": 1.5}).json()
+    assert body["method"]["lookback"] == 7 and body["method"]["ddof"] == 1
+    assert body["method"]["entry_z"] == 1.5 and body["latest"]["sample_count"] == 7
+    assert {e["status"] for e in body["history"]} <= {"Investigate", "No signal", "Insufficient data"}
+    assert get(client).json()["backtest"]["events"] == []
+
+
+def test_unusable_latest_reference_returns_reason_instead_of_old_signal(app):
+    client, path = app
+    with sqlite3.connect(path) as db:
+        db.execute("DROP TRIGGER observation_no_update")
+        where = "instrument='GOLDM' AND expiry='2026-11-20' AND trading_date='2026-10-23'"
+        row = json.loads(db.execute(f"SELECT payload FROM observations WHERE {where}").fetchone()[0])
+        row["quotation_grams"] = "100"
+        db.execute(f"UPDATE observations SET payload=? WHERE {where}", (json.dumps(row),))
+    body = client.post("/api/pair", json={"contract_a": A, "contract_b": B, "as_of": DEFAULT_AS_OF}).json()
+    assert body["status"] == "Insufficient data" and "UNIT_MISMATCH" in body["reason"]
+    assert body["latest"]["z_score"] is None and body["latest"]["raw_pair_spread"] is None
 
 
 def test_read_recomputes_normalization_and_blocks_invalid_stored_units(app):

@@ -25,7 +25,7 @@ Use four task-based destinations, each with an explanation visible before openin
 | --- | --- |
 | Prices | Follow one exact contract and its price history. |
 | Compare prices | Compare normalized prices against the selected reference. |
-| Price signals | Explain deviations from each contract's previous five prices. |
+| Price signals | Explain rolling spread z-scores for explicit exact-expiry pairs, with prior mean, sample standard deviation, sample count and cutoff. |
 | Signal history | Replay past signals without implying simulated trades or profit. |
 
 Replace the sidebar and separate mobile navigation with one responsive navigation grid. Keep contract choice prominent. Put historical time editing behind an expandable control while keeping the active cutoff visible. Use full contract names alongside symbols and exact expiry dates. Expand technical records, specification details and JSON only when requested. Add a glossary and increase table/control text sizes.

@@ -56,7 +56,7 @@ See [DEMO_SCRIPT](docs/DEMO_SCRIPT.md), [CONTRACT_MATRIX](docs/CONTRACT_MATRIX.m
 - `GET /api/contracts?dataset=synthetic&as_of=2026-10-23T18:00:00Z`: exact contract/spec catalog.
 - `GET /api/research?contract_id=GOLDTEN%3A2026-11-24%3Ademo-v3&as_of=2026-10-23T18%3A00%3A00Z`: dashboard prices and provenance. Legacy descriptive single-series replay remains in this response for compatibility; paired financial analysis uses the next endpoints.
 - `GET /api/spec-evidence`: official-PDF research registry; numeric fields verified, operational chronology UNVERIFIED.
-- `POST /api/pair`: paired normalized history, residual statistics, statuses, freshness, quality and exact-date caveats.
+- `POST /api/pair`: paired normalized history, prior-only rolling spread z-scores, statuses, freshness, quality and exact-date caveats.
 - `POST /backtest` or `POST /api/backtest`: replay with persisted reproducible report and trade ledger.
 - `POST /api/ingest`: strict CSV validator; `dry_run` defaults true. Entire invalid batches are rejected. Synthetic imports only; real requests return 404. No fallback.
 
@@ -112,7 +112,7 @@ Browser QA uses installed Edge with a fresh test profile; set `BROWSER_CHANNEL=c
 | Feature | Boundary |
 |---|---|
 | Quote/lot/purity normalization and exact contract provenance | Not an executable spread |
-| Prior-only expected basis, residual z-score and explicit reasons | No predictive/profitability claim |
+| Prior-only spread mean, sample standard deviation, z-score and explicit reasons | No predictive/profitability claim |
 | Integer lot matching, later-observation replay, per-leg expenses | Hypothetical settlements, not actual fills |
 | Mark-to-market, drawdown and reproducible ledger | No required margin, funding or tax completeness |
 | Official original-PDF field evidence | Exact historical spec/calendar chronology remains unverified |

@@ -12,9 +12,7 @@
 
 ## Statistical convention
 
-- Normalize: quote / quote grams × (0.999 / purity). Preserve originals. Compare A minus B. Exact expiry equality is shown; otherwise display CALENDAR_BASIS_DIFFERENCE and both dates. No silent rolling or forward fill.
-- At each paired date, decision time is the later leg availability. Expected basis is the prior-only rolling raw-spread mean. Residual is current raw spread less expected basis. Its baseline and sample standard deviation use prior residual observations, computed at their original decision times and available by this decision. Window default 10, minimum 5: the two-stage warm-up needs additional data before z-scores exist. Low-quality prior events are excluded.
-- Difference = residual − prior residual mean; z = difference / prior residual sample standard deviation (ddof=1). Absolute z ≥ entry threshold is INVESTIGATE, below is NO_SIGNAL. Zero deviation has undefined z and NO_SIGNAL. Too little history is INSUFFICIENT_DATA; stale/spec/liquidity failures are REJECTED. Every status includes a reason. The latest card additionally checks freshness at the requested cutoff and missing later legs.
+- Normalize: quote / quote grams × (0.999 / purity). Preserve originals. Compare A minus B. The active API requires identical exact expiries; the legacy reference API can display calendar differences. No silent rolling or forward fill.
 - No carry, tax, location or delivery pricing model is claimed. A rolling historical baseline may be inappropriate for a structural break.
 
 ## Hypothetical execution and accounting
@@ -35,7 +33,18 @@
 | Immutable specs and exact expiry/version identity | Complete historical MCX spec/calendar timeline |
 | Strict CSV validation and atomic imports | Automatic bhavcopy schema detection or real feed |
 | 999-equivalent normalization with provenance | Economic interchangeability or executable spread |
-| Prior-only residual statistics, explicit statuses | Forecast accuracy or profitable strategy |
+| Prior-only spread statistics, explicit statuses | Forecast accuracy or profitable strategy |
 | Next-observation paired hypothetical replay | Actual fills, market neutrality or margin sufficiency |
 | Leg notional, gross/net attribution, equity and drawdown | Complete taxes, funding, delivery or settlement model |
 | Loopback app and offline seeded workflow | Remote hosting, authentication or trade execution |
+
+### Rolling matched-pair spread signals
+
+- Spread = left normalized price minus right normalized price, in 999-purity INR/gram. The active API accepts only explicitly listed, identical exact expiries and distinct instruments. Normalization uses quotation grams and quoted purity; lot weight is separate.
+- At decision cutoff t, both observed_at and available_at of both legs must be <= t. Pair availability is the maximum of both observations, publications, and required specification, exact listing and calendar availability. Replay uses that availability as its decision cutoff. Latest is evaluated at the explicitly requested as_of; later arrivals may change latest without rewriting earlier replay decisions.
+- Align only identical trading dates. No forward filling, nearby expiry substitution or merging of specification versions. Partitions include dataset and both exact contract/symbol/expiry/specification identities. Unusable reference/price records are excluded and reported. An unusable or missing latest leg blocks a current signal rather than reusing a stale spread.
+- For current date d, take up to lookback preceding eligible aligned dates strictly before d and available by t. z = (current spread - prior mean) / prior sample standard deviation. Sample variance divides squared deviations by n-1 (ddof=1). Current spread is excluded from both mean and standard deviation. Decimal normalization and spread arithmetic precede numeric response values.
+- Defaults: lookback=10 preceding eligible spreads (integer 2..250), min_observations=5 (integer 2..lookback), entry_z=2.5 (finite number >0 and <=100). POST /api/pair and /api/backtest validate these settings. UI controls expose all three. A partial window is permitted once the minimum is met; missing dates do not consume samples.
+- Exactly three signal statuses: Investigate when abs(z) >= threshold (inclusive boundary); No signal below it; Insufficient data for inadequate history, zero variance, missing legs, unusable references or quality failures. Each includes a specific reason. Investigate is a research flag, never guaranteed arbitrage: costs, liquidity, execution and settlement uncertainty remain.
+- Existing quality gates remain: max_age_days=4, min_volume=100, min_oi=100, known spec validity and safe exit. Prior eligibility checks these gates at each spread's own availability; historical records do not age out of the rolling window as the current decision advances. Current freshness is checked at the decision cutoff. Daily volume/OI is only a proxy.
+- API history and latest expose raw_pair_spread, prior_mean, prior_std, z_score, sample_count and cutoff. Latest metrics are null when its legs are missing/unusable. Previous single-contract percentage-deviation signals are retired in the active API; the legacy reference API remains separate. Historical replay consumes these raw-spread z-score signals.

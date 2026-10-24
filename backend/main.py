@@ -73,7 +73,7 @@ def create_app(db_path: Path = SYNTHETIC_DB, real_db_path: Path = REAL_DB):
         return {"dataset": dataset, "label": dataset.upper(), "as_of": as_of, "spec": spec,
                 "prices": rows, "latest": rows[-1] if rows else None, "metrics": metrics,
                 "pairing": pair_catalog(current, spec), "issues": current["issues"],
-                "backtest": {"method": "Point-in-time single-contract signal replay", "events": events},
+                "backtest": {"method": "Single-contract signals retired; use explicitly matched pair rolling spread z-scores", "events": events},
                 "disclaimer": disclaimer(dataset)}
 
     def validated_pair(request):
@@ -83,8 +83,6 @@ def create_app(db_path: Path = SYNTHETIC_DB, real_db_path: Path = REAL_DB):
             spec = next((s for s in current["contracts"] if s["contract_id"] == identifier), None)
             if spec is None:
                 raise HTTPException(404, "Exact contract/specification not available at this cutoff")
-            if spec["normalization_status"] != "READY":
-                raise HTTPException(422, spec["normalization_reason"])
             specs.append(spec)
             histories.append(current["histories"][identifier])
         if specs[0]["expiry"] != specs[1]["expiry"]:
@@ -95,6 +93,16 @@ def create_app(db_path: Path = SYNTHETIC_DB, real_db_path: Path = REAL_DB):
         result.update(pair_id=f"{request.dataset}|{request.contract_a}|{request.contract_b}",
                       basis_differences=basis_differences(*specs),
                       normalization_issues=[i for i in current["issues"] if i["contract_id"] in (request.contract_a, request.contract_b)])
+        issues = result["normalization_issues"]
+        latest_day = result["latest"]["trading_date"] if result["latest"] else ""
+        blocking = [i for i in issues if i["trading_date"] >= latest_day]
+        if blocking:
+            reason = "Unusable reference or observation: " + "; ".join(f"{i['trading_date']}: {i['code']}: {i['reason']}" for i in blocking)
+            result.update(status="Insufficient data", reason=reason)
+            if result["latest"]:
+                result["latest"].update(status="Insufficient data", reason=reason, raw_pair_spread=None,
+                    raw_pair_spread_decimal=None, prior_mean=None, prior_std=None, baseline=None,
+                    expected_basis=None, difference=None, z_score=None, history_count=0, sample_count=0)
         result["quality"]["calendar"] = "Explicit synthetic session calendar" if request.dataset == "synthetic" else "Imported verified session calendar"
         if request.dataset == "real":
             result["cautions"] = [c for c in result["cautions"] if not c.startswith("SYNTHETIC")]
