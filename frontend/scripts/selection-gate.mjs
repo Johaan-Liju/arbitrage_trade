@@ -8,7 +8,7 @@ try {
   const page = await browser.newPage();
   await page.goto('http://127.0.0.1:3000');
   await page.locator('#contract option').nth(1).waitFor({ state: 'attached' });
-  const id = 'GOLDPETAL:2026-11-30:demo-v1';
+  const id = 'GOLDPETAL:2026-11-30:demo-v3';
   const received = page.waitForResponse(r => r.url().includes('/api/research?') && r.url().includes('GOLDPETAL') && r.status() === 200);
   await page.selectOption('#contract', id);
   const response = await received;

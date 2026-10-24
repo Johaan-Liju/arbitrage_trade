@@ -3,11 +3,11 @@ import sqlite3
 from fastapi.testclient import TestClient
 import pytest
 
-from backend.domain import DEFAULT_AS_OF, validate_price
+from backend.domain import DEFAULT_AS_OF, validate_price, normalize
 from backend.main import create_app
-from backend.store import connection, fixtures, seed, REAL_DB
+from backend.store import connection, fixtures, seed, REAL_DB, SPEC_FIELDS
 
-CONTRACT = "GOLDM:2026-11-20:demo-v1"
+CONTRACT = "GOLDM:2026-11-20:demo-v3"
 
 
 @pytest.fixture
@@ -23,6 +23,12 @@ def research(client, **changes):
 
 
 def insert(db, table, row):
+    if table == "specs":
+        insert(db, "contract_spec_versions", {k: row[k] for k in SPEC_FIELDS})
+        insert(db, "contracts", {k: row[k] for k in ("contract_id","dataset","symbol","expiry","spec_version","tender_start","safe_exit_date")})
+        return
+    if table == "prices":
+        table = "daily_prices"
     db.execute(f"INSERT INTO {table} ({','.join(row)}) VALUES ({','.join('?' for _ in row)})", tuple(row.values()))
 
 
@@ -62,7 +68,7 @@ def test_invalid_prices(change):
 def test_specs_are_immutable_and_identity_is_enforced(app_client):
     _, path = app_client
     with connection(path) as db:
-        for statement in ["UPDATE specs SET quote_grams=999", "DELETE FROM specs"]:
+        for statement in ["UPDATE contract_spec_versions SET quote_grams=999", "DELETE FROM contract_spec_versions"]:
             with pytest.raises(sqlite3.IntegrityError, match="immutable"):
                 db.execute(statement)
         row = dict(db.execute("SELECT * FROM prices LIMIT 1").fetchone())
@@ -112,7 +118,7 @@ def test_server_metrics_and_normalization(app_client):
     assert body["metrics"]["mean_5"] == round(sum(r["price"] for r in body["prices"][-5:]) / 5, 2)
     assert len(body["compare"]) == 8
     for row in body["compare"]:
-        assert row["price_per_gram"] == round(row["price"] / row["quote_grams"], 2)
+        assert row["price_per_gram"] == round(row["price"] / row["quote_grams"] * .999 / row["purity"], 2)
     own = next(row for row in body["compare"] if row["contract_id"] == CONTRACT)
     assert own["gap_pct"] == 0
     events = body["backtest"]["events"]
@@ -126,7 +132,7 @@ def test_late_arrival_never_rewrites_earlier_decisions(app_client):
     before = research(client).json()
     with connection(path) as db:
         row = dict(db.execute("SELECT * FROM prices WHERE contract_id=? ORDER BY trading_date LIMIT 1", (CONTRACT,)).fetchone())
-        row.update(trading_date="2026-08-31", observed_at="2026-08-31T16:00:00Z", available_at="2026-10-24T16:05:00Z", price=999999)
+        row.update(trading_date="2026-08-31", observed_at="2026-08-31T16:00:00Z", available_at="2026-10-24T16:05:00Z", ingested_at="2026-10-24T16:05:00Z", price=999999)
         insert(db, "prices", row)
     assert research(client).json() == before
     later = research(client, as_of="2026-10-25T18:00:00Z").json()
@@ -142,17 +148,17 @@ def test_version_partition_and_point_in_time_spec(app_client):
     before = research(client).json()
     with connection(path) as db:
         spec = dict(db.execute("SELECT * FROM specs WHERE contract_id=?", (CONTRACT,)).fetchone())
-        spec.update(contract_id="GOLDM:2026-11-20:demo-v2", spec_version="demo-v2", available_at="2026-10-24T00:00:00Z")
+        spec.update(contract_id="GOLDM:2026-11-20:demo-v4", spec_version="demo-v4", available_at="2026-10-24T00:00:00Z")
         insert(db, "specs", spec)
         row = dict(db.execute("SELECT * FROM prices WHERE contract_id=? LIMIT 1", (CONTRACT,)).fetchone())
-        row.update(contract_id=spec["contract_id"], spec_version="demo-v2", trading_date="2026-10-24", observed_at="2026-10-24T16:00:00Z", available_at="2026-10-24T16:05:00Z", price=888888)
+        row.update(contract_id=spec["contract_id"], spec_version="demo-v4", trading_date="2026-10-24", observed_at="2026-10-24T16:00:00Z", available_at="2026-10-24T16:05:00Z", ingested_at="2026-10-24T16:05:00Z", price=888888)
         insert(db, "prices", row)
     assert research(client).json() == before
     assert research(client, contract_id=spec["contract_id"]).status_code == 404
     later = research(client, contract_id=spec["contract_id"], as_of="2026-10-25T18:00:00Z").json()
     assert later["metrics"]["count"] == 1
     assert later["backtest"]["events"][0]["baseline"] is None
-    assert later["backtest"]["events"][0]["spec_version"] == "demo-v2"
+    assert later["backtest"]["events"][0]["spec_version"] == "demo-v4"
 
 
 def test_contract_partition(app_client):

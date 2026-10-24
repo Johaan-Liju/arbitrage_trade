@@ -1,0 +1,98 @@
+{
+  "retrieved_on": "2026-10-24",
+  "live_analytics_enabled": false,
+  "specifications": [
+    {
+      "symbol": "GOLDM",
+      "evidence_version": "mcx-retrieved-2026-10-24",
+      "quote_grams": 10,
+      "lot_grams": 100,
+      "purity": 0.995,
+      "delivery_location": "Ahmedabad; additional Mumbai and New Delhi",
+      "expiry_scope": "August 2026 expiry contracts onwards",
+      "source_url": "https://www.mcxindia.com/docs/default-source/about-us/gold-mini-august-2026-contract-onwards8a79913a-e8de-4136-9f0b-25d31dc163c4.pdf",
+      "fields_status": "VERIFIED_FROM_ORIGINAL_PDF",
+      "operational_status": "UNVERIFIED",
+      "valid_from": null,
+      "valid_to": null,
+      "historical_available_at": null,
+      "expiry_rule": "5th of expiry month, preceding working day if holiday",
+      "tender_restrictions": "Last three trading days including expiry; open expiry positions require delivery",
+      "unverified": [
+        "Exact effective/availability chronology",
+        "Exact listed expiry and tender dates",
+        "Verified trading/settlement calendar",
+        "All later superseding circulars"
+      ]
+    },
+    {
+      "symbol": "GOLDTEN",
+      "evidence_version": "mcx-retrieved-2026-10-24",
+      "quote_grams": 10,
+      "lot_grams": 10,
+      "purity": 0.999,
+      "delivery_location": "Ahmedabad; additional New Delhi and Mumbai",
+      "expiry_scope": "July 2026 expiry contracts onwards",
+      "source_url": "https://www.mcxindia.com/docs/default-source/about-us/gold-ten-july-2026-contract-onwards.pdf",
+      "fields_status": "VERIFIED_FROM_ORIGINAL_PDF",
+      "operational_status": "UNVERIFIED",
+      "valid_from": null,
+      "valid_to": null,
+      "historical_available_at": null,
+      "expiry_rule": "Last calendar day of expiry month, preceding working day if holiday",
+      "tender_restrictions": "Last three trading days including expiry; open expiry positions require delivery",
+      "unverified": [
+        "Exact effective/availability chronology",
+        "Exact listed expiry and tender dates",
+        "Verified trading/settlement calendar",
+        "All later superseding circulars"
+      ]
+    },
+    {
+      "symbol": "GOLDGUINEA",
+      "evidence_version": "mcx-retrieved-2026-10-24",
+      "quote_grams": 8,
+      "lot_grams": 8,
+      "purity": 0.999,
+      "delivery_location": "Ahmedabad; additional New Delhi and Mumbai",
+      "expiry_scope": "July 2026 expiry contracts onwards",
+      "source_url": "https://www.mcxindia.com/docs/default-source/about-us/gold-guinea-july-2026-contract-onwards.pdf",
+      "fields_status": "VERIFIED_FROM_ORIGINAL_PDF",
+      "operational_status": "UNVERIFIED",
+      "valid_from": null,
+      "valid_to": null,
+      "historical_available_at": null,
+      "expiry_rule": "Last calendar day of expiry month, preceding working day if holiday",
+      "tender_restrictions": "Last three trading days including expiry; open expiry positions require delivery",
+      "unverified": [
+        "Exact effective/availability chronology",
+        "Exact listed expiry and tender dates",
+        "Verified trading/settlement calendar",
+        "All later superseding circulars"
+      ]
+    },
+    {
+      "symbol": "GOLDPETAL",
+      "evidence_version": "mcx-retrieved-2026-10-24",
+      "quote_grams": 1,
+      "lot_grams": 1,
+      "purity": 0.999,
+      "delivery_location": "Mumbai; additional Ahmedabad and New Delhi",
+      "expiry_scope": "July 2026 expiry contracts onwards",
+      "source_url": "https://www.mcxindia.com/docs/default-source/about-us/gold-petal-july-2026-contract-onwards.pdf",
+      "fields_status": "VERIFIED_FROM_ORIGINAL_PDF",
+      "operational_status": "UNVERIFIED",
+      "valid_from": null,
+      "valid_to": null,
+      "historical_available_at": null,
+      "expiry_rule": "Last calendar day of expiry month, preceding working day if holiday",
+      "tender_restrictions": "Last three trading days including expiry; open expiry positions require delivery",
+      "unverified": [
+        "Exact effective/availability chronology",
+        "Exact listed expiry and tender dates",
+        "Verified trading/settlement calendar",
+        "All later superseding circulars"
+      ]
+    }
+  ]
+}
