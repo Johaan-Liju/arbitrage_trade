@@ -12,6 +12,7 @@
 :root { color-scheme: dark; --background: #0d1117; --foreground: #e7ebf0; --card: #131920; --primary: #d9bd7d; }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--background); color: var(--foreground); font-family: Arial, Helvetica, sans-serif; font-size: 14px; }
+html { scroll-padding-top: calc(var(--dataset-banner-height, 85px) + 16px); }
 button, summary { cursor: pointer; }
 button:disabled { cursor: wait; }
 ::selection { background: #d9bd7d40; color: var(--foreground); }
@@ -32,3 +33,10 @@ button:disabled { cursor: wait; }
 
 summary { border-radius: 6px; line-height: 1.6; }
 summary:focus-visible, a:focus-visible { outline: 2px solid var(--primary); outline-offset: 4px; }
+
+/* Shared secondary-detail treatment; tables scroll inside their container. */
+.disclosure { border: 1px solid var(--color-border); border-radius: 12px; padding: 16px 20px; font-size: 14px; }
+.disclosure summary { color: var(--color-muted-foreground); }
+main { min-width: 0; }
+main p { overflow-wrap: anywhere; }
+.field:disabled { opacity: .65; cursor: not-allowed; }

@@ -24,11 +24,11 @@ The official [product index](https://www.mcxindia.com/products/bullion/gold) lis
 
 **UNVERIFIED for real analytics.** The numeric fields above were verified in originals; this is not a verified historical specification timeline. PDF contract-month scope is not a publication timestamp or exact effective trading date. Exact `valid_from`, `valid_to`, original availability, listed expiry dates, tender dates, holiday/special-session calendars and superseding circular coverage remain unresolved. No month label is converted into an expiry date. Missing values are null in [the evidence registry](evidence/mcx-specs-2026-10-24.json); `/api/spec-evidence` exposes it with `live_analytics_enabled=false`.
 
-No operational real specification or real price dataset has been fabricated. All real API requests fail closed. A future real-data adapter must populate a fully evidenced immutable version and exact dated contract before analytics can be enabled.
+No operational real specification or real price dataset has been fabricated. No real dataset is seeded. The active v4 importer can accept independently supplied complete verified references, exact listings, session calendars and prices in separate real storage; absent or unusable real data fails closed. The evidence registry alone cannot enable real analytics.
 
 ## Synthetic decision
 
-`demo-v3` uses these quote/lot/purity numbers for arithmetic exercises, but its contracts, effective dates, delivery descriptions, safe exits, calendars and all observations are **invented**. Its source is `synthetic://goldlens/demo-v3`, not an MCX PDF. Exact synthetic expiries are enumerated in code, not inferred. Older fixture databases are retained separately; v3 never overwrites their specifications.
+`demo-v4` uses these quote/lot/purity numbers for arithmetic exercises, but its contracts, effective dates, delivery descriptions, safe exits, calendars and all observations are **invented**. Its source is `https://synthetic.goldlens.invalid/demo-v4`, not an MCX PDF. Exact synthetic expiries are enumerated in code, not inferred. Older fixture databases are retained separately; v4 never overwrites their specifications.
 
 ## Gate 3: independent hand checks
 

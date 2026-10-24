@@ -2,6 +2,8 @@ import { chromium, expect } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 
+const base = process.env.GOLDLENS_TEST_URL || 'http://127.0.0.1:3000';
+const api = process.env.GOLDLENS_TEST_API;
 const browser = await chromium.launch({ channel: process.env.BROWSER_CHANNEL || 'msedge', headless: true });
 const errors = [];
 const reports = [];
@@ -9,8 +11,12 @@ try {
   const context = await browser.newContext({ viewport: { width: 1512, height: 1100 } });
   const page = await context.newPage();
   page.on('pageerror', error => errors.push(error.message));
-  const loaded = () => page.getByRole('status').filter({ hasText: 'API snapshot' }).waitFor();
-  await page.goto('http://127.0.0.1:3000');
+  if (api) await page.route('**/api/**', async route => {
+    const url = new URL(route.request().url());
+    await route.fulfill({response: await route.fetch({url: `${api}${url.pathname}${url.search}`})});
+  });
+  const loaded = () => page.getByRole('status').filter({ hasText: 'available prices' }).waitFor();
+  await page.goto(base);
   await loaded();
   await expect(page.getByText('SYNTHETIC DATA', { exact: true })).toBeVisible();
   assert.equal(await page.locator('#contract option').count(), 8);
@@ -39,7 +45,7 @@ try {
   await expect(page.getByText('The number of contracts still open, rather than closed or settled.', { exact: true })).toBeVisible();
   await page.getByText('Terms explained', { exact: true }).click();
   reports.push('Plain-language navigation, expandable records and glossary work');
-  const chartPrices = (await (await page.request.get('http://127.0.0.1:3000/api/research?contract_id=GOLDM%3A2026-11-20%3Ademo-v4&as_of=2026-10-23T18%3A00%3A00Z&dataset=synthetic')).json()).prices;
+  const chartPrices = (await (await page.request.get(`${api || base}/api/research?contract_id=GOLDM%3A2026-11-20%3Ademo-v4&as_of=2026-10-23T18%3A00%3A00Z&dataset=synthetic`)).json()).prices;
   async function checkChartHover() {
     const hitArea = page.getByTestId('price-chart-hit-area');
     await hitArea.scrollIntoViewIfNeeded();
@@ -68,7 +74,7 @@ try {
   reports.push('Chart hover: all 39 dates/prices, stable vertical tracking and leave reset at desktop and mobile widths');
   await mkdir('../artifacts', { recursive: true });
   await page.screenshot({ path: '../artifacts/dashboard-desktop.png', fullPage: true });
-  for (const [name, heading] of [['Compare prices', 'Prices side by side'], ['Price signals', 'A transparent research rule'], ['Signal history', 'Hypothetical paired settlement replay']]) {
+  for (const [name, heading] of [['Compare prices', 'Prices side by side'], ['Price signals', 'Current signal'], ['Paired backtest', 'Simulation settings']]) {
     await page.getByRole('navigation', { name: 'Main navigation', exact: true }).getByRole('link', { name }).click();
     await loaded();
     await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible();
@@ -96,7 +102,7 @@ try {
   await page.getByRole('button', { name: 'Retry connection' }).click();
   await loaded();
   reports.push('Error state: failed API clears stale data; Retry restores actual response');
-  await page.route('**/api/research?*', async route => { await new Promise(resolve => setTimeout(resolve, 900)); await route.continue(); });
+  await page.route('**/api/research?*', async route => { await new Promise(resolve => setTimeout(resolve, 900)); await route.fallback(); });
   await page.selectOption('#contract', 'GOLDTEN:2026-12-22:demo-v4');
   await expect(page.getByLabel('Loading research', { exact: true })).toBeVisible();
   await loaded();

@@ -1,3 +1,7 @@
+# Historical plan (initial scaffold)
+
+This document records the initial scope, not current behavior. The active v4 app includes immutable-reference normalization, exact-expiry pairs, rolling spread z-scores and cost-aware hypothetical paired trades. See README.md and PAIRED_BACKTEST.md for current behavior.
+
 # GoldLens implementation plan
 
 ## MCX specification and ingestion slice

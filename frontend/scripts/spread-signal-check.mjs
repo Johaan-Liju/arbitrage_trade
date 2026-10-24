@@ -15,10 +15,11 @@ try {
   const loaded = page.waitForResponse(r => r.url().endsWith('/api/pair') && r.status() === 200);
   await page.goto(`${base}/signals`);
   const initial = await (await loaded).json();
-  await expect(page.getByText(/Spread = left minus right/)).toBeVisible();
+  await expect(page.getByText(/The price difference is A minus B/)).toBeVisible();
   await expect(page.getByText('Prior sample std / INR/g', { exact: true })).toBeVisible();
   await expect(page.getByText('Prior sample count', { exact: true })).toBeVisible();
   await expect(page.getByTestId('signal-reason')).toHaveText(initial.latest.reason);
+  await page.getByText(/Signal settings/).click();
   for (const [label, value] of [['Lookback observations', '7'], ['Minimum prior observations', '3'], ['Investigate |z| threshold', '100']]) {
     const response = page.waitForResponse(r => r.url().endsWith('/api/pair') && r.status() === 200);
     await page.getByLabel(label, { exact: true }).fill(value);
