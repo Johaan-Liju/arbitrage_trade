@@ -1,5 +1,97 @@
 # GoldLens build log
 
+## 2026-10-25 - Stable price-history hover
+
+Observed in code: each observation used a circle that shrank from radius 7 to 5 on mouse enter. A pointer in the outer ring could consequently leave the newly smaller target, clearing selection and restoring its larger radius. Small separate targets also left gaps between observations.
+
+Replaced per-circle mouse handlers with a fixed transparent plot overlay using pointer events. Pointer coordinates are transformed through the SVG screen matrix, then mapped to the nearest observation. The selected marker and guide do not receive pointer events; leaving or cancelling the overlay clears selection. Removed native marker titles so a second tooltip cannot overlap the readout. Dark theme and financial calculations are unchanged.
+
+Extended the existing browser regression check to sweep all 39 observations at desktop and mobile widths, compare displayed dates/prices against API values, move vertically at a fixed date and verify exit reset.
+
+```text
+npm.cmd --prefix frontend run build
+exit 0; compiled, TypeScript passed, static routes generated.
+
+npm.cmd --prefix frontend run test:browser
+exit 0; 15 PASS reports, including chart tracking at desktop and 390px mobile widths,
+all existing navigation, data, disclosure, cutoff, loading/error/retry and overflow checks.
+
+git diff --check
+exit 0; line-ending warnings for existing docs/BUILD_LOG.md and docs/PLAN.md only.
+```
+
+No backend changes, dependency installation or deployment.
+
+## 2026-10-24 - Restore dark theme
+
+Restored the charcoal backgrounds, dark cards, light text and warm gold accents at the user's request. Restored dark native controls, table/loading colors and chart grid/labels. Semantic status colors now use shades suited to dark surfaces. Kept the simplified navigation and explanations.
+
+Validation:
+
+```text
+npm.cmd --prefix frontend run build
+exit 0; compilation, TypeScript and static generation passed.
+
+npm.cmd --prefix frontend run test:browser
+exit 0; all 14 PASS reports, including navigation, contract selection,
+disclosures, cutoff and error states, and mobile overflow.
+```
+
+No backend changes, installations or deployment.
+
+## 2026-10-24 - Light color palette
+
+Design decision: changed the default appearance to light gray/white surfaces, navy text and deep gold accents. Updated inputs, tables, loading placeholders, chart/grid/axis colors, logo and selection highlighting. Removed the root dark class and enabled native light controls. Added semantic green/red/blue/amber colors so connection status, changes, signals and warnings remain legible on light surfaces. No layout or calculation changes.
+
+Actual validation:
+
+```text
+npm.cmd --prefix frontend run build
+exit 0; compilation, TypeScript and static page generation passed.
+
+npm.cmd --prefix frontend run test:browser
+exit 0; all 14 PASS reports, including four research views, contract selection,
+disclosures, cutoff, empty/error/retry/loading states and mobile overflow checks.
+```
+
+Visually inspected the regenerated artifacts/dashboard-desktop.png: light surfaces, navy text, gold chart and red price change render correctly. No backend tests run for this presentation-only change. No dependencies installed or services deployed.
+
+## 2026-10-24 - Simplify research navigation
+
+Observed: inspected the existing frontend and API, read frontend/AGENTS.md and installed Next.js client-component and CSS guides. Pre-existing changes to docs/PLAN.md and untracked backend/ingestion.py and backend/reference.py were left intact.
+
+Research: used the reverse-engineer-anything skill and REA browser scenario against the public MCX homepage. Three schema-validation attempts did not launch a scenario; the corrected request captured Access Denied and cleaned up its owned browser. Public web-reader access exposed MCX navigation and the Market Watch, Compare Commodities and Gold product pages. See UI_RESEARCH.md for URLs, evidence identity, design choices and limits. MCX rendered UI was not observed.
+
+Changes: replaced sidebar/mobile navigation with four explained task links; renamed Dashboard, Compare, Signals and Backtest to Prices, Compare prices, Price signals and Signal history. Added direct page explanations, readable contract names, visible active cutoff with expandable time editor, expandable contract details and price records, and a glossary. Increased control/table text sizes. Retained backend calculations, routes, synthetic labeling and API error behavior. Updated the existing browser checks for the new navigation and disclosure controls.
+
+Actual validation commands and results:
+
+```text
+npm.cmd --prefix frontend run build
+First attempt: exit 1, mismatched closing tag while converting the price ledger to a disclosure.
+Corrected the tag and text encoding introduced by the PowerShell script pipe.
+Second attempt: exit 0; compiled, TypeScript passed, all four application routes generated.
+
+.\.venv\Scripts\python.exe -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
+exit 1; port already in use, owned startup attempt shut down.
+
+npm.cmd --prefix frontend start
+exit 1; EADDRINUSE on 127.0.0.1:3000.
+Existing local services were available; neither existing process was stopped.
+
+npm.cmd --prefix frontend run test:browser
+exit 0; 14 PASS reports. Verified four symbols with HTTP 200 and 39 observations each;
+all four views; contract retention; expandable 39-row ledger and glossary;
+unchanged cutoff; earlier-cutoff empty state; API failure clears results and retry restores them;
+loading state; raw JSON; mobile navigation with no page overflow at 390px;
+no uncaught browser JavaScript errors.
+
+git diff --check
+exit 0; existing docs/PLAN.md line-ending warning only.
+```
+
+Visually inspected artifacts/dashboard-desktop.png and artifacts/dashboard-mobile.png. Browser screenshots and results are under ignored artifacts/. No backend changes, new dependencies, external writes, deployment or push. Backend tests were not rerun because this change is confined to presentation and browser validation.
+
 ## 2026-10-24 - Next.js / FastAPI implementation
 
 ### Observed environment and authorized scope
