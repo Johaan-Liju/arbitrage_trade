@@ -1,5 +1,6 @@
 """Point-in-time research calculations. No fills, P&L or execution promises."""
 import pandas as pd
+from .domain import normalize
 
 WINDOW = 5
 THRESHOLD = 0.2
@@ -40,12 +41,14 @@ def comparisons(db, selected: dict, as_of: str, latest: dict | None):
         if history.empty:
             continue
         row = history.iloc[-1].to_dict()
-        per_gram = float(row["price"]) / spec["quote_grams"]
+        per_gram = normalize(float(row["price"]), spec)
         aligned = latest is not None and latest["trading_date"] == row["trading_date"]
-        selected_per_gram = latest["price"] / selected["quote_grams"] if latest else None
+        selected_per_gram = normalize(latest["price"], selected) if latest else None
         comparisons.append({"contract_id": spec["contract_id"], "symbol": spec["symbol"], "expiry": spec["expiry"],
                             "spec_version": spec["spec_version"], "trading_date": row["trading_date"], "quote_grams": spec["quote_grams"],
-                            "price": float(row["price"]), "price_per_gram": round(per_gram, 2),
+                            "price": float(row["price"]), "price_per_gram": round(per_gram, 2), "purity":spec["purity"],
+                            "lot_grams":spec["lot_grams"], "reference_expiry":selected["expiry"],
+                            "alignment":"EXACT_EXPIRY" if spec["expiry"]==selected["expiry"] else "CALENDAR_BASIS_DIFFERENCE",
                             "gap_pct": round((per_gram / selected_per_gram - 1) * 100, 3) if aligned else None,
                             "aligned_date": aligned, "volume": int(row["volume"]), "open_interest": int(row["open_interest"])})
         signals.append({"contract_id": spec["contract_id"], "symbol": spec["symbol"], "expiry": spec["expiry"], "spec_version": spec["spec_version"],

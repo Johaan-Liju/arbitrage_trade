@@ -1,73 +1,90 @@
 # GoldLens
 
-Local-first gold contract research with a Next.js/TypeScript/Tailwind/shadcn frontend and FastAPI/Pandas/SQLite backend. A dark workspace with Dashboard, Compare, Signals and Backtest. All business calculations come from the API.
+Local-first gold contract research using Next.js / TypeScript / Tailwind / shadcn-style components and FastAPI / Pandas / SQLite. **SYNTHETIC DATA ONLY.** Exact contracts, calendars, prices, volume and OI are invented. Official quotation/lot/purity evidence is documented separately; real analytics remain blocked.
 
-**SYNTHETIC DATA ONLY.** GOLDM, GOLDTEN, GOLDGUINEA and GOLDPETAL use invented specifications, prices, volume and open interest. These are not verified exchange contracts or current market observations.
+## Start locally (Windows PowerShell)
 
-## Local setup (Windows PowerShell)
-
-Requires Node.js 24 and Python 3.12. Commands below run from the repository root. Dependencies are installed locally; no global packages are required. Tested versions are recorded in `frontend/package-lock.json` and `backend/requirements.lock.txt`.
+Use Node.js 22.13+ (validated 22.16.0) and Python 3.11+ (validated 3.11.9). From this repository root, install project-local dependencies once:
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r backend/requirements.lock.txt
 npm.cmd --prefix frontend ci
+npm.cmd --prefix frontend run build
 ```
 
-If npm reports `UNABLE_TO_VERIFY_LEAF_SIGNATURE` on this machine, set `$env:NODE_USE_SYSTEM_CA='1'` in that terminal and retry. Keep TLS verification enabled. Use `npm.cmd` to avoid PowerShell's `npm.ps1` execution-policy restriction; virtual-environment activation is unnecessary.
+Then start both services with one command:
 
-**Terminal 1 - backend:**
+```powershell
+npm.cmd run local
+```
+
+Open [GoldLens](http://127.0.0.1:3000). Both processes bind only to `127.0.0.1`; the frontend proxies `/api/*` to port 8000. Ctrl+C stops owned services. The launcher refuses occupied ports. Installation needs internet; the built app, seeded workflow and tests need no market connection. No credentials are used.
+
+For development, run these in two terminals:
 
 ```powershell
 .\.venv\Scripts\python.exe -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
-```
-
-Startup creates `data/synthetic/goldlens-v1.sqlite3` if needed and verifies the deterministic fixtures on subsequent starts. SQLite or validation errors fail startup; there is no substitute dataset. API health: http://127.0.0.1:8000/api/health. Interactive API documentation: http://127.0.0.1:8000/docs (its Swagger assets may require internet).
-
-**Terminal 2 - frontend:**
-
-```powershell
 npm.cmd --prefix frontend run dev
 ```
 
-Open **http://127.0.0.1:3000**. Both services bind to IPv4 loopback. The browser calls `/api/*` on Next.js, which proxies to FastAPI at `127.0.0.1:8000`; no CORS or browser API-origin configuration is needed. Keep these ports together unless you also update `frontend/next.config.ts`. Stop each terminal with Ctrl+C.
+Stop development before building/starting production on the same ports. `npm.cmd` avoids the PowerShell npm.ps1 execution-policy restriction. No global installation is needed. On other systems use `.venv/bin/python` and `npm`; only Windows was validated.
 
-For a production frontend build, stop the dev frontend and run:
+## Three-minute workflow
 
-```powershell
-npm.cmd --prefix frontend run build
-npm.cmd --prefix frontend start
+1. Select GOLDTEN · **2026-11-24** · demo-v3; default UTC cutoff **2026-10-23T18:00:00Z**.
+2. Compare with GOLDGUINEA · **2026-11-27**. Inspect normalized prices, spread, prior-only expected basis and z-score bands. Read the calendar mismatch caveat.
+3. Signals explains INVESTIGATE with an explicit reason, prior statistics, volume/OI and freshness. Expand the observation ledger and Quality checks.
+4. Backtest first rejects a calendar mismatch by default. Explicitly acknowledge different expiries to run the hypothetical settlement simulation. Inspect both legs, subsequent fill dates, notional, costs, net P&L and equity/drawdown. A 100 entry threshold demonstrates no trades.
+5. Apply an early cutoff such as `2026-09-01T16:00:00Z`: observed but not yet available records are excluded. Errors clear stale results.
+
+See [DEMO_SCRIPT](docs/DEMO_SCRIPT.md), [CONTRACT_MATRIX](docs/CONTRACT_MATRIX.md) and [ASSUMPTIONS](docs/ASSUMPTIONS.md). Normalization is a comparison convention, not an executable arbitrage price. No orders are sent.
+
+## APIs
+
+- `GET /api/health`: storage and dataset readiness.
+- `GET /api/contracts?dataset=synthetic&as_of=2026-10-23T18:00:00Z`: exact contract/spec catalog.
+- `GET /api/research?contract_id=GOLDTEN%3A2026-11-24%3Ademo-v3&as_of=2026-10-23T18%3A00%3A00Z`: dashboard prices and provenance. Legacy descriptive single-series replay remains in this response for compatibility; paired financial analysis uses the next endpoints.
+- `GET /api/spec-evidence`: official-PDF research registry; numeric fields verified, operational chronology UNVERIFIED.
+- `POST /api/pair`: paired normalized history, residual statistics, statuses, freshness, quality and exact-date caveats.
+- `POST /backtest` or `POST /api/backtest`: replay with persisted reproducible report and trade ledger.
+- `POST /api/ingest`: strict CSV validator; `dry_run` defaults true. Entire invalid batches are rejected. Synthetic imports only; real requests return 404. No fallback.
+
+Example pair request (JSON):
+
+```json
+{
+  "contract_a": "GOLDTEN:2026-11-24:demo-v3",
+  "contract_b": "GOLDGUINEA:2026-11-27:demo-v3",
+  "dataset": "synthetic",
+  "as_of": "2026-10-23T18:00:00Z",
+  "lookback": 10,
+  "min_observations": 5,
+  "entry_z": 2.5
+}
 ```
 
-On macOS/Linux use `python3 -m venv .venv`, `.venv/bin/python` instead of `.\.venv\Scripts\python.exe`, and `npm` instead of `npm.cmd`. Windows is the validated environment.
+For backtesting add `exit_z: 0.5`, `fee_bps: 5`, `slippage_bps: 10` and `allow_calendar: true` only when consciously accepting the calendar difference. Other API controls: `max_age_days`, `min_volume`, `min_oi`, `max_lots`, `max_participation`, `initial_capital`. Invalid values are rejected. [Local OpenAPI JSON](http://127.0.0.1:8000/openapi.json) is offline; Swagger `/docs` may load external assets.
 
-## Try the app
+CSV request has `csv_text`, `dataset`, explicit `as_of`, optional `expected_dates` (exact session list), and `dry_run`. Exact columns, with no extras or aliases:
 
-1. Select a contract and its exact expiry. Eight combinations are available, two for each symbol.
-2. The default explicit UTC cutoff is `2026-10-23T18:00:00Z`. The API returns 39 observations for each contract.
-3. Inspect the actual JSON with **Inspect API response** below the workspace.
-4. Apply `2026-09-01T16:00:00Z`: the first price is observed but not yet available, so the page is empty. At `2026-09-01T16:05:00Z`, one observation becomes available.
-5. Navigate to Compare for quote-weight normalization, Signals for prior-five-observation deviations, or Backtest for historical decision replay. Selection and cutoff carry across navigation.
+```text
+contract_id,dataset,symbol,expiry,spec_version,trading_date,price,open,high,low,close,volume,open_interest,currency,unit,source,observed_at,available_at,ingested_at
+```
 
-The UI shows explicit loading, empty, API-error and retry states. API failures clear stale research results. Real data is never substituted with synthetic data.
+`price` is settlement, `currency=INR`, `unit=quote`, timestamps are `YYYY-MM-DDTHH:MM:SSZ`. Unknown contracts, duplicate keys, missing data, impossible dates/ranges, wrong units and stale specs reject. Large finite values are flagged; they are not silently corrected. Without an explicit session list, missing dates cannot be distinguished from holidays and the validator says so.
 
-## API and storage
+## Storage and verification
 
-- `GET /api/health`: SQLite readiness and dataset status.
-- `GET /api/contracts?dataset=synthetic`: versioned contract catalog; accepts an optional `as_of` cutoff.
-- `GET /api/research?contract_id=GOLDM%3A2026-11-20%3Ademo-v1&as_of=2026-10-23T18%3A00%3A00Z&dataset=synthetic`: prices, metrics, comparisons, signals and point-in-time replay. `as_of` is mandatory.
-- Real/unknown datasets return 404; invalid timestamps return 422; unavailable specs return 404; valid cutoffs with no prices return 200 with empty results.
+Canonical tables: instruments, contract_spec_versions, contracts, daily_prices, signals, backtest_runs, trades. The schema supports explicit version-partitioned contracts; `specs` and `prices` are read compatibility views. Prices/specs/contracts are immutable. The deterministic seed creates 8 contracts, 4 spec versions (one per instrument) and 312 observations across 39 synthetic weekdays. Re-running verifies published fixtures and never updates them.
 
-The generator in `backend/store.py` produces **8 specs and 312 observations**, covering 39 weekdays from 2026-09-01 through 2026-10-23. Weekdays are a demonstration convention, not a verified exchange calendar. Exact expiries are explicitly enumerated. There is no random seed or current-time dependency. You can recheck seeding with `.\.venv\Scripts\python.exe -m backend.store`.
-
-Synthetic data lives only in `data/synthetic/goldlens-v1.sqlite3`; `data/real/goldlens.sqlite3` is reserved separately and is not opened or seeded. Databases are ignored by Git and regenerate from code. Specification updates/deletes are rejected by SQLite triggers; add a new version for changed terms. Price identity includes dataset, symbol, expiry and spec version, plus trading date, currency, unit, source, observed and available timestamps. Model validation and insert constraints enforce identity and chronology. This is a local read-only API, not tamper-proof storage against direct file edits.
-
-Pandas filters both timestamps at the requested cutoff. Rolling means, changes, normalization and signals are calculated in Python. Each replay decision refilters its history at that observation's availability time and uses its referenced specification version. Frontend arithmetic is limited to chart positioning and numeric formatting.
-
-## Validation
+Current data: `data/synthetic/goldlens-v3.sqlite3`. Reserved real data: `data/real/goldlens.sqlite3` (never seeded). Prior databases are retained; v3 does not mutate legacy terms. Databases are Git-ignored and regenerate locally. Real contract-month scope must never be treated as an exact expiry/effective date. All business calculations run in the backend; frontend arithmetic is chart geometry/formatting only.
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest backend/tests -q
+.\.venv\Scripts\python.exe -m backend.demo_gates
+npm.cmd --prefix frontend run lint
+npm.cmd --prefix frontend run typecheck
 npm.cmd --prefix frontend run build
 ```
 
@@ -78,16 +95,17 @@ With both services running:
 npm.cmd --prefix frontend run test:browser
 ```
 
-Browser tests use installed Microsoft Edge with a fresh temporary profile, never a personal browser session. To use installed Chrome, set `$env:BROWSER_CHANNEL='chrome'`. No browser installation is required on the validated machine. Tests select each symbol, verify HTTP responses and rendered prices, navigate every view, exercise loading/empty/error/retry states, and check mobile overflow. Evidence is written to ignored `artifacts/` (screenshots and JSON). To rerun the initial integration gate, change into `frontend` and run `node scripts/selection-gate.mjs`.
+Browser QA uses installed Edge with a fresh test profile; set `BROWSER_CHANNEL=chrome` to use installed Chrome. It never inspects personal tabs or profiles. Screenshots and reports go to ignored `artifacts/`. The upstream Starlette httpx deprecation warning is recorded separately from failures.
 
-The backend suite currently emits one upstream Starlette warning about future migration from httpx to httpx2; tests pass with the pinned dependencies.
+## Verified scope versus unsupported claims
 
-## Scope and implementation
+| Feature | Boundary |
+|---|---|
+| Quote/lot/purity normalization and exact contract provenance | Not an executable spread |
+| Prior-only expected basis, residual z-score and explicit reasons | No predictive/profitability claim |
+| Integer lot matching, later-observation replay, per-leg expenses | Hypothetical settlements, not actual fills |
+| Mark-to-market, drawdown and reproducible ledger | No required margin, funding or tax completeness |
+| Official original-PDF field evidence | Exact historical spec/calendar chronology remains unverified |
+| Local offline synthetic workflow | No real feed, deployment or execution |
 
-Backtest is a point-in-time **signal replay**, not a trading simulator. It reports no fills, P&L or profitability. Comparisons across expiries do not model carry, taxes, fees, delivery or settlement. Synthetic liquidity cannot establish executability. No real-data importer, exchange calendar validation, authentication, remote hosting or trade execution is implemented. Research results are never guaranteed arbitrage.
-
-The app uses local assets and system fonts. UI source is owned locally under `frontend/components/ui`, following [shadcn manual installation](https://ui.shadcn.com/docs/installation/manual); routing and build follow [Next.js App Router](https://nextjs.org/docs/app/getting-started/installation). The original Node-only slice remains under `src`, `dist`, `test`, and the old JSON fixtures as legacy reference; it is not used by the new app. Legacy commands: `npm.cmd run start:legacy` (port 4310), `npm.cmd run test:legacy`.
-
-See [project rules](AGENTS.md), [plan](docs/PLAN.md), and [actual build results](docs/BUILD_LOG.md).
-
-REA tooling remains available through `.\rea.cmd --version`; it is independent of the app and depends on the previously installed npm cache entry. No REA setup changes are required to run GoldLens.
+See [BUILD_LOG](docs/BUILD_LOG.md) for exact commands and observed outcomes. Original Node-only code under `src`, `dist`, `test` remains legacy reference (`npm.cmd run test:legacy`). No deployment or push is performed.

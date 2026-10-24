@@ -3,7 +3,9 @@
   "version": "0.2.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=24" },
+  "engines": {
+    "node": ">=22.13"
+  },
   "scripts": {
     "dev": "npm --prefix frontend run dev",
     "start": "npm --prefix frontend start",
@@ -14,6 +16,7 @@
     "test:browser": "npm --prefix frontend run test:browser",
     "start:legacy": "node src/server.js",
     "test:legacy": "node --test",
-    "health:legacy": "node scripts/health-check.mjs"
+    "health:legacy": "node scripts/health-check.mjs",
+    "local": "\".venv\\Scripts\\python.exe\" scripts/start-local.py"
   }
 }
