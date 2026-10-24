@@ -19,7 +19,7 @@ for base in ("http://127.0.0.1:8000", "http://127.0.0.1:3000"):
 base = "http://127.0.0.1:3000"
 _, catalog = get(base + "/api/contracts")
 assert len(catalog["contracts"]) == 8
-params = {"contract_id": "GOLDPETAL:2026-11-30:demo-v3", "as_of": catalog["default_as_of"], "dataset": "synthetic"}
+params = {"contract_id": "GOLDPETAL:2026-11-20:demo-v4", "as_of": catalog["default_as_of"], "dataset": "synthetic"}
 _, snapshot = get(base + "/api/research?" + urlencode(params))
 assert snapshot["spec"]["symbol"] == "GOLDPETAL" and snapshot["metrics"]["count"] == 39
 print("PASS frontend proxy -> FastAPI research: GOLDPETAL, 39 observations, SYNTHETIC")

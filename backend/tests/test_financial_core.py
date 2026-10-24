@@ -8,10 +8,10 @@ import pytest
 from fastapi.testclient import TestClient
 from backend.domain import DEFAULT_AS_OF, normalize, validate_price, Spec
 from backend.store import fixtures, connection, seed
-from backend.ingestion import COLUMNS, validate_csv
+from backend.legacy_ingestion import COLUMNS, validate_csv
 from backend.pairs import PairRequest, pair_history
 from backend.backtest import BacktestRequest, simulate, lot_match
-from backend.main import create_app
+from backend.legacy_api import create_app
 
 
 def example(anomaly=140, **options):

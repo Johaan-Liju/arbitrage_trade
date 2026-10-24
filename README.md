@@ -2,6 +2,16 @@
 
 Local-first gold contract research using Next.js / TypeScript / Tailwind / shadcn-style components and FastAPI / Pandas / SQLite. **SYNTHETIC DATA ONLY.** Exact contracts, calendars, prices, volume and OI are invented. Official quotation/lot/purity evidence is documented separately; real analytics remain blocked.
 
+## Current contract research API (v4)
+
+The active API uses `data/synthetic/goldlens-v4.sqlite3` and the new immutable `demo-v4` synthetic specifications. Earlier demo versions remain untouched. Invented purity, calendar, delivery and settlement terms are explicitly labelled SYNTHETIC. No real market records were fetched.
+
+Python computes `quoted price / quotation grams ? 999 / quoted purity per mille` with Decimal. Lot weight is displayed separately. Compare prices shows normalized values, exact-expiry partners, unmatched reasons and delivery/location/settlement differences. Every request filters prices and reference versions against its explicit as-of cutoff. Missing or unverified required terms block normalization.
+
+Real imports use a separate `data/real/imports-v4.sqlite3` file, with no synthetic fallback. `POST /api/ingest` accepts `{ "csv_text": "...", "manifest": {...}, "registry": {...}, "dry_run": true }`; set `dry_run` false only for a validated reviewed local import. The registry supplies immutable specification, explicit listing and calendar versions. CLI validation: `.\.venv\Scripts\python.exe -m backend.ingestion validate records.csv --manifest manifest.json --registry registry.json`. Existing database versions are not migrated silently. The preserved `backend.legacy_api` and its tests cover the earlier v3 behavior; production uses `backend.main`.
+
+After updating source, rebuild and restart both local services so the API and frontend use the same version. `/api/health` should report `0.4.0` and `demo-v4`.
+
 ## Start locally (Windows PowerShell)
 
 Use Node.js 22.13+ (validated 22.16.0) and Python 3.11+ (validated 3.11.9). From this repository root, install project-local dependencies once:

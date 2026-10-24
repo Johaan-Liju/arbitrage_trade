@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 """Strict daily-observation CSV ingestion; no guessing, coercion or partial commits."""
 import argparse
 import csv
@@ -16,6 +15,7 @@ from zoneinfo import ZoneInfo
 
 from pydantic import Field, model_validator
 
+from .normalization import normalize_observation
 from .domain import utc
 from .reference import (FrozenModel, ReferenceFailure, ReferenceRegistry, canonical_hash,
                         exact_date, load_registry, normalize_999, official_url)
@@ -113,7 +113,7 @@ def validate_csv(content: str, manifest: ImportManifest, registry: ReferenceRegi
                 if listing.first_trade_date <= day.isoformat() <= listing.last_trade_date:
                     spec.require_usable(day.isoformat(), manifest.as_of)
                     if session_day.state != "CLOSED":
-                        expected_keys.add((manifest.dataset, requested.instrument, requested.expiry, day.isoformat()))
+                        expected_keys.add((manifest.dataset, requested.instrument, requested.expiry, requested.spec_id, day.isoformat()))
             day += timedelta(days=1)
     except (ReferenceFailure, ValueError) as error:
         issue(getattr(error, "code", "INVALID_REFERENCE"), str(error))
@@ -140,7 +140,7 @@ def validate_csv(content: str, manifest: ImportManifest, registry: ReferenceRegi
                     raise ReferenceFailure("DATASET_MISMATCH", "Row dataset does not match import manifest")
                 expiry = exact_date(row["expiry"])
                 trading_date = exact_date(row["trading_date"])
-                key = (manifest.dataset, row["instrument"], row["expiry"], row["trading_date"])
+                key = (manifest.dataset, row["instrument"], row["expiry"], row["spec_id"], row["trading_date"])
                 if key in seen or key in stored:
                     raise ReferenceFailure("DUPLICATE_OBSERVATION", f"Duplicate instrument/expiry/trading-date key: {key}")
                 seen.add(key)
@@ -149,55 +149,20 @@ def validate_csv(content: str, manifest: ImportManifest, registry: ReferenceRegi
                 requested = expected_contracts.get((row["instrument"], row["expiry"]))
                 if not requested or requested.spec_id != row["spec_id"]:
                     raise ReferenceFailure("UNEXPECTED_CONTRACT", "Row contract/spec is not in the explicit import manifest")
-                observed, available = utc(row["observed_at"]), utc(row["available_at"])
-                if available < observed or available > manifest.as_of or observed > manifest.as_of:
-                    raise ReferenceFailure("INVALID_CHRONOLOGY", "Require observed <= available <= explicit as-of")
-                if datetime.fromisoformat(observed.replace("Z", "+00:00")).astimezone(ZoneInfo("Asia/Kolkata")).date() != trading_date:
-                    raise ReferenceFailure("INVALID_TRADING_DATE", "Observation must belong to its Asia/Kolkata trading date")
-                if urlparse(row["source_url"]).scheme not in ("http", "https") or not urlparse(row["source_url"]).hostname:
-                    raise ReferenceFailure("MISSING_PROVENANCE", "Price source_url must be an explicit HTTP(S) source")
-                price = decimal_cell(row["price"], "price")
-                if price <= 0:
-                    raise ReferenceFailure("INVALID_PRICE", "Gold price must be strictly positive")
-                volume, oi = integer_cell(row["volume"], "volume"), integer_cell(row["open_interest"], "open_interest")
-                spec = registry.spec(row["spec_id"])
-                spec.require_usable(row["trading_date"], manifest.as_of)
-                if spec.instrument != row["instrument"] or spec.dataset != manifest.dataset:
-                    raise ReferenceFailure("SPEC_IDENTITY_MISMATCH", "Price does not belong to the referenced spec")
-                if row["currency"] != spec.currency or row["price_unit"] != spec.price_unit:
-                    raise ReferenceFailure("UNIT_MISMATCH", "Currency/price unit differs from the verified quote basis")
-                if decimal_cell(row["quotation_grams"], "quotation_grams") != spec.quotation_grams:
-                    raise ReferenceFailure("UNIT_MISMATCH", "Quotation grams must match the spec; lot size is NOT the quotation denominator")
-                if decimal_cell(row["quote_purity_per_mille"], "quote_purity_per_mille") != spec.quote_purity_per_mille:
-                    raise ReferenceFailure("PURITY_MISMATCH", "Use quoted-price purity, not delivery purity or 9999 notation")
-                listing = registry.contract(row["instrument"], row["expiry"], row["spec_id"])
-                if not listing.first_trade_date or not listing.first_trade_date <= row["trading_date"] <= listing.last_trade_date:
-                    raise ReferenceFailure("OUTSIDE_LISTING", "Observation is outside the explicit contract trading interval")
-                if calendar is None:
-                    raise ReferenceFailure("UNVERIFIED_CALENDAR", "No verified session calendar")
-                market_day = calendar.day(row["trading_date"], manifest.as_of)
-                if market_day.state == "CLOSED":
-                    raise ReferenceFailure("TRADING_HOLIDAY", "Observation falls on an explicitly closed trading date")
-                window = next((w for w in market_day.windows if w.name == row["session"]), None)
-                if not window or not window.opens_at <= observed <= window.closes_at:
-                    raise ReferenceFailure("CLOSED_SESSION", "Observation is outside the named open session, including partial holidays")
-                value = normalize_999(price, spec, row["trading_date"], manifest.as_of)
+                for field in ("price", "quotation_grams", "quote_purity_per_mille"):
+                    decimal_cell(row[field], field)
+                integer_cell(row["volume"], "volume")
+                integer_cell(row["open_interest"], "open_interest")
+                result = normalize_observation(row, registry, manifest.calendar_id, manifest.as_of)
+                value = Decimal(result["normalized_999_inr_per_gram"])
                 if not manifest.min_normalized_inr_per_gram <= value <= manifest.max_normalized_inr_per_gram:
-                    raise ReferenceFailure("UNUSUAL_PRICE_REVIEW_REQUIRED", "999-equivalent value is outside the explicit importer sanity bounds; no clipping or inferred unit correction")
-                normalized.append({"dataset": manifest.dataset, "instrument": row["instrument"], "expiry": row["expiry"],
-                    "trading_date": row["trading_date"], "spec_id": row["spec_id"], "spec_version": spec.version,
-                    "price": row["price"], "currency": row["currency"], "price_unit": row["price_unit"],
-                    "quotation_grams": str(spec.quotation_grams), "lot_size_grams": str(spec.lot_size_grams),
-                    "quote_purity_per_mille": str(spec.quote_purity_per_mille), "volume": volume, "open_interest": oi,
-                    "observed_at": observed, "available_at": available,
-                    "normalized_available_at": max(available, spec.available_at, listing.available_at, calendar.available_at),
-                    "normalized_999_inr_per_gram": str(value), "normalization_formula": "quoted_INR / quotation_grams * 999 / quote_purity_per_mille",
-                    "normalization_version": "999-equivalent-v1", "delivery_locations": list(spec.delivery_locations),
-                    "delivery_restrictions": spec.delivery_restrictions, "original": original,
-                    "provenance": {"source_url": row["source_url"], "spec_source_url": spec.source_url,
-                                   "listing_source_url": listing.source_url, "calendar_source_url": calendar.source_url,
-                                   "csv_sha256": csv_hash, "manifest_sha256": manifest_hash,
-                                   "registry_sha256": registry_hash, "source_line": line, "validated_as_of": manifest.as_of}})
+                    raise ReferenceFailure("UNUSUAL_PRICE_REVIEW_REQUIRED", "Value is outside explicit importer sanity bounds; no clipping or inferred unit correction")
+                result.update(original=original, provenance={"source_url": row["source_url"],
+                    "csv_sha256": csv_hash, "manifest_sha256": manifest_hash, "registry_sha256": registry_hash,
+                    "source_line": line, "validated_as_of": manifest.as_of})
+                normalized.append(result)
+            except (ValueError, InvalidOperation, KeyError) as error:
+                issue(getattr(error, "code", "INVALID_RECORD"), str(error), line)
     except csv.Error as error:
         issue("MALFORMED_CSV", str(error), reader.line_num)
     for key in sorted(expected_keys - seen):
@@ -219,15 +184,48 @@ CREATE TABLE IF NOT EXISTS batches (id TEXT PRIMARY KEY, csv_text TEXT NOT NULL,
 CREATE TABLE IF NOT EXISTS observations (
  dataset TEXT NOT NULL, instrument TEXT NOT NULL, expiry TEXT NOT NULL, trading_date TEXT NOT NULL,
  spec_id TEXT NOT NULL, spec_kind TEXT NOT NULL DEFAULT 'spec', payload TEXT NOT NULL, batch_id TEXT NOT NULL REFERENCES batches(id),
- PRIMARY KEY(dataset,instrument,expiry,trading_date),
+ PRIMARY KEY(dataset,instrument,expiry,spec_id,trading_date),
  FOREIGN KEY(spec_kind,spec_id) REFERENCES reference_versions(kind,id)
 );
 CREATE TRIGGER IF NOT EXISTS observation_no_update BEFORE UPDATE ON observations BEGIN SELECT RAISE(ABORT,'Observations are immutable'); END;
 CREATE TRIGGER IF NOT EXISTS observation_no_delete BEFORE DELETE ON observations BEGIN SELECT RAISE(ABORT,'Observations are immutable'); END;
+CREATE TABLE IF NOT EXISTS backtest_runs (run_id TEXT PRIMARY KEY, dataset TEXT NOT NULL, payload TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS trades (run_id TEXT NOT NULL REFERENCES backtest_runs(run_id), trade_index INTEGER NOT NULL, payload TEXT NOT NULL, PRIMARY KEY(run_id,trade_index));
+CREATE TABLE IF NOT EXISTS signals (signal_id TEXT PRIMARY KEY, dataset TEXT NOT NULL, payload TEXT NOT NULL);
 """
 
 
+def initialize_storage(db):
+    version = db.execute("PRAGMA user_version").fetchone()[0]
+    populated = db.execute("SELECT 1 FROM sqlite_master WHERE type='table' LIMIT 1").fetchone()
+    if version != 4 and (version != 0 or populated):
+        raise ReferenceFailure("STORAGE_VERSION", "Use a new v4 database; existing versions are never migrated implicitly")
+    db.executescript(SCHEMA)
+    db.execute("PRAGMA user_version=4")
+
+
+def check_storage_path(path: Path, dataset: str):
+    opposite = ROOT / "data" / ("real" if dataset == "synthetic" else "synthetic")
+    if path.resolve().is_relative_to(opposite.resolve()):
+        raise ReferenceFailure("DATASET_MISMATCH", "Refusing to cross reserved real/synthetic storage paths")
+
+
+def set_owner(db, dataset: str):
+    owners = db.execute("SELECT dataset FROM metadata").fetchall()
+    if owners and [r[0] for r in owners] != [dataset]:
+        raise ReferenceFailure("DATASET_MISMATCH", "Database belongs to another dataset")
+    if not owners:
+        db.execute("INSERT INTO metadata VALUES (?)", (dataset,))
+
+
 def store_registry(db, registry: ReferenceRegistry):
+    owners = {s.dataset for s in registry.specs} | {c.dataset for c in registry.calendars}
+    if len(owners) != 1:
+        raise ReferenceFailure("DATASET_MISMATCH", "A reference snapshot must belong to exactly one dataset")
+    set_owner(db, owners.pop())
+    for listing in registry.contracts:
+        if registry.spec(listing.spec_id).instrument != listing.instrument:
+            raise ReferenceFailure("SPEC_IDENTITY_MISMATCH", "Listing does not match the exact specification")
     groups = (("spec", [(s.spec_id, s) for s in registry.specs]),
               ("listing", [(f"{s.instrument}:{s.expiry}:{s.spec_id}", s) for s in registry.contracts]),
               ("calendar", [(s.calendar_id, s) for s in registry.calendars]))
@@ -243,9 +241,11 @@ def store_registry(db, registry: ReferenceRegistry):
 
 
 def persist_catalog(registry: ReferenceRegistry, path: Path):
+    for spec in registry.specs:
+        check_storage_path(path, spec.dataset)
     path.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(path) as db:
-        db.executescript(SCHEMA)
+        initialize_storage(db)
         store_registry(db, registry)
 
 
@@ -253,22 +253,15 @@ def import_csv(content: str, manifest: ImportManifest, registry: ReferenceRegist
     result = validate_csv(content, manifest, registry)
     if not result["valid"]:
         return result
-    path = path or ROOT / "data" / manifest.dataset / "imports.sqlite3"
-    # Never allow an explicit path to cross the project's reserved dataset directories.
-    opposite = ROOT / "data" / ("real" if manifest.dataset == "synthetic" else "synthetic")
-    if path.resolve().is_relative_to(opposite.resolve()):
-        raise ReferenceFailure("DATASET_MISMATCH", "Refusing to cross reserved real/synthetic storage paths")
+    path = path or ROOT / "data" / manifest.dataset / "imports-v4.sqlite3"
+    check_storage_path(path, manifest.dataset)
     path.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(path) as db:
         db.execute("PRAGMA foreign_keys=ON")
-        db.executescript(SCHEMA)
+        initialize_storage(db)
         db.execute("BEGIN IMMEDIATE")
-        dataset = db.execute("SELECT dataset FROM metadata").fetchone()
-        if dataset and dataset[0] != manifest.dataset:
-            raise ReferenceFailure("DATASET_MISMATCH", "Database belongs to another dataset")
-        if not dataset:
-            db.execute("INSERT INTO metadata VALUES (?)", (manifest.dataset,))
-        existing = db.execute("SELECT dataset,instrument,expiry,trading_date FROM observations").fetchall()
+        set_owner(db, manifest.dataset)
+        existing = db.execute("SELECT dataset,instrument,expiry,spec_id,trading_date FROM observations").fetchall()
         result = validate_csv(content, manifest, registry, existing)
         if not result["valid"]:
             db.rollback()
@@ -300,9 +293,9 @@ def main():
     parser.add_argument("action", choices=["validate", "import"])
     parser.add_argument("csv_path", type=Path)
     parser.add_argument("--manifest", type=Path, required=True)
-    parser.add_argument("--registry", type=Path, help="Explicit reviewed reference snapshot; defaults to the bundled MCX snapshot")
+    parser.add_argument("--registry", type=Path, required=True, help="Explicit reviewed reference snapshot; no implicit MCX approval")
     args = parser.parse_args()
-    registry = load_registry(args.registry) if args.registry else load_registry()
+    registry = load_registry(args.registry)
     manifest = ImportManifest.model_validate_json(args.manifest.read_text(encoding="utf-8"))
     content = args.csv_path.read_bytes().decode("utf-8")  # Preserve CRLF and original text in batch provenance.
     result = import_csv(content, manifest, registry) if args.action == "import" else validate_csv(content, manifest, registry)
@@ -312,74 +305,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-=======
-"""Strict CSV validation. No month-to-expiry inference or silent unit conversion."""
-import csv
-from io import StringIO
-from .domain import Price, validate_price, normalize, utc
-from .store import insert
-
-COLUMNS = list(Price.model_fields)
-
-
-def validate_csv(text, specs, existing=(), expected_dates=None, as_of=None):
-    if len(text) > 5_000_000:
-        raise ValueError("CSV exceeds 5 MB limit")
-    reader = csv.DictReader(StringIO(text))
-    if not reader.fieldnames or len(set(reader.fieldnames)) != len(reader.fieldnames) or set(reader.fieldnames) != set(COLUMNS):
-        raise ValueError("Mismatched CSV schema; exact columns required: " + ",".join(COLUMNS))
-    known = {s["contract_id"]: s for s in specs}
-    seen = set(existing)
-    rows, errors, warnings = [], [], []
-    for line, raw in enumerate(reader, 2):
-        if line > 20001:
-            raise ValueError("CSV exceeds 20000 rows")
-        try:
-            if None in raw or any(v is None or not v.strip() for v in raw.values()):
-                raise ValueError("Missing observation field or extra column")
-            for field in ("price", "open", "high", "low", "close"):
-                raw[field] = float(raw[field])
-            for field in ("volume", "open_interest"):
-                raw[field] = int(raw[field])
-            spec = known.get(raw["contract_id"])
-            if spec is None:
-                raise ValueError("Unknown exact contract/specification")
-            row = validate_price(raw, spec)
-            key = (row["contract_id"],row["trading_date"])
-            if key in seen:
-                raise ValueError("Duplicated contract/trading-date key (including existing storage)")
-            seen.add(key)
-            if as_of and (row["available_at"] > utc(as_of) or row["ingested_at"] > as_of):
-                raise ValueError("Future availability/ingestion beyond import cutoff")
-            if expected_dates is not None and row["trading_date"] not in expected_dates:
-                raise ValueError("Date is not in the explicitly supplied session calendar (holiday/closed)")
-            if row["dataset"] == "real" and (expected_dates is None or spec["verification"] != "VERIFIED"):
-                raise ValueError("UNVERIFIED specification/calendar blocks real ingestion")
-            normalized = normalize(row["price"], spec)
-            if normalized < 100 or normalized > 100000:
-                warnings.append({"line":line,"reason":"Unusual INR/g; retained for review, not proof of an error"})
-            rows.append(row)
-        except (ValueError, TypeError) as error:
-            errors.append({"line":line,"reason":str(error)})
-    if not rows and not errors:
-        errors.append({"line":2,"reason":"Missing observations: CSV has no records"})
-    if expected_dates is not None:
-        for contract_id in {r["contract_id"] for r in rows}:
-            missing = sorted(set(expected_dates)-{r["trading_date"] for r in rows if r["contract_id"]==contract_id})
-            if missing:
-                errors.append({"line":0,"reason":f"Missing observations for {contract_id}: {','.join(missing)}"})
-    normalized = [{"contract_id":r["contract_id"],"expiry":r["expiry"],"spec_version":r["spec_version"],
-                   "trading_date":r["trading_date"],"original_quote":r["price"],"source":r["source"],
-                   "normalized_999_per_g":normalize(r["price"],known[r["contract_id"]])} for r in rows] if not errors else []
-    return {"accepted":not errors,"rows":rows if not errors else [],"normalized_observations":normalized,"errors":errors,"warnings":warnings,
-            "calendar_status":"EXPLICIT_SESSION_LIST" if expected_dates is not None else "UNVERIFIED; missing sessions cannot be distinguished from holidays"}
-
-
-def ingest(db, text, specs, expected_dates, as_of, dry_run=True):
-    existing = {(r[0],r[1]) for r in db.execute("SELECT contract_id,trading_date FROM prices")}
-    result = validate_csv(text,specs,existing,expected_dates,as_of)
-    if result["accepted"] and not dry_run:
-        for row in result["rows"]:
-            insert(db,"daily_prices",row)
-    return {**result,"dry_run":dry_run,"inserted":len(result["rows"]) if result["accepted"] and not dry_run else 0}
->>>>>>> 8ac8885badf893791b51a2b0017f2f2352f8c0e1

@@ -1,5 +1,6 @@
 """Paired prior-only research. Original quotes retained; no price filling or rolling."""
 from datetime import datetime
+from decimal import Decimal
 import math
 import statistics
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -70,11 +71,13 @@ def pair_history(specs, histories, request):
             missing.append({"trading_date":day,"reason":"Missing one leg; no forward fill"})
             continue
         rows = [m[day] for m in maps]
-        decision = max(r["available_at"] for r in rows)
-        p = [normalize(r["price"],s) for r,s in zip(rows,specs)]
+        decision = max(r.get("normalized_available_at", r["available_at"]) for r in rows)
+        precise = [Decimal(r["normalized_999_inr_per_gram"]) if "normalized_999_inr_per_gram" in r else Decimal(str(normalize(r["price"], s))) for r, s in zip(rows, specs)]
+        p = [float(value) for value in precise]
+        spread = precise[0] - precise[1]
         prior = [e for e in events if e["decision_at"]<=decision and e["trading_date"]<day and not e["quality_reasons"]][-request.lookback:]
         basis = statistics.mean(e["raw_pair_spread"] for e in prior) if len(prior)>=request.min_observations else None
-        residual = p[0]-p[1]-basis if basis is not None else None
+        residual = float(spread)-basis if basis is not None else None
         residuals = [e["residual_spread"] for e in prior if e["residual_spread"] is not None]
         mean = statistics.mean(residuals) if len(residuals)>=request.min_observations else None
         std = statistics.stdev(residuals) if mean is not None else None
@@ -88,7 +91,7 @@ def pair_history(specs, histories, request):
                 quality.append(f"Stale observation: {s['symbol']}")
             if r["volume"]<request.min_volume or r["open_interest"]<request.min_oi:
                 quality.append(f"Insufficient volume/OI proxy: {s['symbol']}")
-            if day>s["safe_exit_date"]:
+            if s["safe_exit_date"] and day>s["safe_exit_date"]:
                 quality.append(f"Past safe exit: {s['symbol']}")
         if quality:
             status,reason = "REJECTED", "; ".join(quality)
@@ -101,7 +104,7 @@ def pair_history(specs, histories, request):
         else:
             status,reason = "NO_SIGNAL", f"Absolute z-score {abs(z):.3f} is below threshold {request.entry_z}"
         events.append({"trading_date":day,"decision_at":decision,"normalized_a":p[0],"normalized_b":p[1],
-            "raw_pair_spread":p[0]-p[1],"expected_basis":basis,"residual_spread":residual,"residual_mean":mean,
+            "raw_pair_spread":float(spread),"raw_pair_spread_decimal":str(spread),"expected_basis":basis,"residual_spread":residual,"residual_mean":mean,
             "residual_std":std,"baseline":basis+mean if basis is not None and mean is not None else None,
             "difference":diff,"z_score":z,"upper_z":request.entry_z,"lower_z":-request.entry_z,
             "history_count":len(residuals),"status":status,"reason":reason,"quality_reasons":quality,

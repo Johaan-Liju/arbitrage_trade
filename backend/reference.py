@@ -59,6 +59,8 @@ class SpecVersion(FrozenModel):
     delivery_locations: tuple[str, ...] = ()
     expiry_restrictions: str | None = None
     delivery_restrictions: str | None = None
+    settlement_method: str | None = None
+    settlement_terms: str | None = None
     evidence: dict[str, str] = Field(default_factory=dict)
     unresolved: tuple[str, ...] = ()
 
@@ -81,8 +83,9 @@ class SpecVersion(FrozenModel):
             raise ReferenceFailure("UNVERIFIED_SPEC", f"{self.spec_id} is not approved: {'; '.join(self.unresolved) or self.verification_status}")
         required = (self.source_url, self.effective_date, self.verified_through, self.lot_size_grams,
                     self.quotation_grams, self.quote_purity_per_mille, self.delivery_locations,
-                    self.expiry_restrictions, self.delivery_restrictions)
-        if any(value is None or value == "" or value == () for value in required):
+                    self.expiry_restrictions, self.delivery_restrictions,
+                    self.settlement_method, self.settlement_terms)
+        if any(value is None or value == () or (isinstance(value, str) and not value.strip()) for value in required):
             raise ReferenceFailure("UNVERIFIED_SPEC", "Specification has missing required terms")
         if self.dataset == "real" and not official_url(self.source_url):
             raise ReferenceFailure("UNVERIFIED_SPEC", "Real specifications require an official MCX source")
@@ -108,10 +111,11 @@ class ListedContract(FrozenModel):
     available_at: str
     delivery_start: str | None = None
     delivery_end: str | None = None
+    safe_exit_date: str | None = None
 
     @model_validator(mode="after")
     def structure(self):
-        for value in (self.expiry, self.first_trade_date, self.last_trade_date, self.delivery_start, self.delivery_end):
+        for value in (self.expiry, self.first_trade_date, self.last_trade_date, self.delivery_start, self.delivery_end, self.safe_exit_date):
             if value is not None:
                 exact_date(value)
         utc(self.available_at)
@@ -119,6 +123,10 @@ class ListedContract(FrozenModel):
             raise ValueError("Last trading date exceeds exact expiry")
         if self.first_trade_date and self.first_trade_date > self.last_trade_date:
             raise ValueError("Invalid listing interval")
+        if self.delivery_start and self.delivery_end and self.delivery_start > self.delivery_end:
+            raise ValueError("Invalid delivery interval")
+        if self.safe_exit_date and (not self.delivery_start or not self.safe_exit_date < self.delivery_start <= self.expiry):
+            raise ValueError("Safe exit must precede delivery start and exact expiry")
         return self
 
 
@@ -189,6 +197,9 @@ class ReferenceRegistry(FrozenModel):
         keys = [s.spec_id for s in self.specs]
         if len(keys) != len(set(keys)):
             raise ValueError("Duplicate specification version IDs")
+        identities = [(s.dataset, s.instrument, s.version) for s in self.specs]
+        if len(identities) != len(set(identities)):
+            raise ValueError("Duplicate dataset/instrument/specification version identities")
         keys = [(c.instrument, c.expiry, c.spec_id) for c in self.contracts]
         if len(keys) != len(set(keys)):
             raise ValueError("Duplicate exact contract reference")

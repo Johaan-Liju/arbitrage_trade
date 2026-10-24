@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 import pytest
 
 from backend.domain import DEFAULT_AS_OF, validate_price, normalize
-from backend.main import create_app
+from backend.legacy_api import create_app
 from backend.store import connection, fixtures, seed, REAL_DB, SPEC_FIELDS
 
 CONTRACT = "GOLDM:2026-11-20:demo-v3"

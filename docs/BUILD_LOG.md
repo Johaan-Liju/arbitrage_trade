@@ -375,3 +375,36 @@ No live REA tools or MCP reload tool are exposed to this chat. Configuration and
 - Final backend: **61 passed**; frontend lint/typecheck/build: **passed**; browser workflows: **16 PASS reports**; API smoke: **passed**; legacy: **5 passed**. No critical failures remain. Upstream Starlette httpx deprecation is the only pytest warning.
 - Requested local commit prepared with message `GoldLens runnable MVP`; no push or deployment.
 - First `git add .` / `git commit -m "GoldLens runnable MVP"` attempt was blocked because sandbox permissions make `.git` read-only (`index.lock: Permission denied`). Retried with repository metadata write access; this is the user-requested local commit only.
+
+
+## 2026-10-25 ? Contract normalization and exact-expiry integration
+
+Observed changes:
+- Connected strict reference/CSV ingestion to the active FastAPI research API and frontend. Decimal normalization uses quotation grams and purity per mille; lot weight is never the denominator.
+- Point-in-time validation covers dataset, symbol, exact expiry, immutable spec ID/version, trading date, observation/availability time, and specification/listing/calendar availability. Invalid records expose reasons and are excluded from calculations.
+- Pair catalogs require identical explicit expiry dates and different symbols, list unmatched reasons, and disclose delivery, location and settlement differences. No nearest-expiry substitution or forward fill. Pair/backtest endpoints reject differing expiries even when calendar spread is requested.
+- Created separate synthetic demo-v4 reference/dataset and SQLite schema v4. Earlier fixtures/databases were not rewritten. Real imports remain separate and require supplied reviewed references; no real data fetched or verified terms invented.
+- Reconciled existing conflict markers while preserving current UI and pair/backtest behavior. Preserved earlier API/importer as legacy modules; existing 61 tests explicitly exercise those modules. New 19 tests cover the active contract integration.
+
+Commands and actual results:
+- `.\.venv\Scripts\python.exe -m backend.synthetic_v4`: exit 0; seeded 4 synthetic specifications, 8 listings and 312 observations.
+- `.\.venv\Scripts\python.exe -m pytest backend/tests -q`: 80 passed, 1 upstream Starlette/httpx deprecation warning, 17.01 seconds, exit 0. An initial new-suite run had 18 passed/1 failed because a test input violated its manifest sanity bound; corrected the test bound, with production validation unchanged.
+- `npm.cmd --prefix frontend run build`: exit 0; compilation, TypeScript and generation of all six static pages succeeded.
+- `npm.cmd --prefix frontend run lint`: exit 1; local eslint executable/package is absent. No dependency installation performed.
+- Conflict-marker scan of backend and frontend components/lib/scripts: no markers found.
+- `.\.venv\Scripts\python.exe scripts/health-check.py`: exit 0; API and frontend proxy return 312 synthetic observations, GOLDPETAL returns 39 observations, real request returns 404 without fallback.
+
+Runtime diagnosis: the previously running backend still reported version 0.2.0, incompatible with the new frontend pairing payload. Identified the exact loopback GoldLens listeners, stopped only those two services and restarted backend.main plus the built Next frontend on 127.0.0.1 ports 8000/3000. API smoke checks then passed.
+
+Design decisions: authoritative normalized values are Decimal strings from Python; numeric aliases are presentation/legacy statistical inputs. Synthetic dates and terms are invented and visibly labelled. Real readiness depends on an explicitly supplied verified registry and data; no operational real dataset is configured.
+
+Final runtime validation: `npm.cmd --prefix frontend run test:browser` ? exit 0, 15 PASS reports including four contracts, all navigation views, all 39 chart hover points at desktop/mobile, cutoff/empty/error/retry/loading behavior, mobile overflow and no uncaught JavaScript errors. `git diff --check` ? exit 0 (only LF/CRLF informational notice).
+
+
+### Obsolete contract link recovery
+
+Observed: backend and frontend proxy health/contracts endpoints returned HTTP 200 on v0.4.0. Runtime logs showed repeated research 404s for `GOLDM:2026-11-20:demo-v1`, a URL selection absent from the active demo-v4 dataset. Retry preserved that selection across navigation. The real dataset remains intentionally unconfigured.
+
+Changed: catalog validation now detects unavailable selections before issuing a research request, displays the exact unavailable identifier in the selector, explains older demo links, and offers an explicit "Use an available contract" action. Selecting a contract updates the address bar so refresh does not restore the obsolete identifier. No implicit version or expiry substitution. Rebuilt and restarted only the identified loopback frontend.
+
+Validation: `npm.cmd --prefix frontend run build` ? exit 0, compile/TypeScript/static generation passed. `node scripts/stale-link-check.mjs` (cwd frontend) ? initial run failed because the test matched Next's route announcer as well as the application alert; scoped the locator to main. Rerun exit 0: old link makes no failing research requests, explicit recovery loads research/pair, updates URL, survives refresh, and raises no browser errors.

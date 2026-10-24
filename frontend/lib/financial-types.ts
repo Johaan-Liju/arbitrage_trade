@@ -7,7 +7,7 @@ export type PairEvent = {
   status: string; reason: string; history_count: number; quality_reasons: string[];
   a: Price; b: Price; age_hours: number;
 };
-export type PairResult = {
+export type PairResult = { basis_differences: {field: string; left: unknown; right: unknown}[]; normalization_issues: {trading_date: string; code: string; reason: string}[];
   dataset: string; label: string; as_of: string; spec_a: Contract; spec_b: Contract;
   alignment: string; expiry_difference_days: number; cautions: string[];
   method: { lookback: number; min_observations: number; entry_z: number; basis: string };
