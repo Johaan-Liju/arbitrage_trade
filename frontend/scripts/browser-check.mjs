@@ -39,7 +39,7 @@ try {
   await page.getByText('All recorded prices / dates and sources', { exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Recorded prices', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'View all observations' }).click();
-  assert.equal(await page.locator('tbody tr').count(), 39);
+  assert.equal(await page.locator('details').filter({ hasText: 'All recorded prices / dates and sources' }).locator('tbody tr').count(), 39);
   await page.getByText('All recorded prices / dates and sources', { exact: true }).click();
   await page.getByText('Terms explained', { exact: true }).click();
   await expect(page.getByText('The number of contracts still open, rather than closed or settled.', { exact: true })).toBeVisible();
@@ -74,16 +74,27 @@ try {
   reports.push('Chart hover: all 39 dates/prices, stable vertical tracking and leave reset at desktop and mobile widths');
   await mkdir('../artifacts', { recursive: true });
   await page.screenshot({ path: '../artifacts/dashboard-desktop.png', fullPage: true });
-  for (const [name, heading] of [['Compare prices', 'Prices side by side'], ['Price signals', 'Current signal'], ['Paired backtest', 'Simulation settings']]) {
+  await expect(page.getByRole('heading', { name: 'Prices side by side' })).toBeVisible();
+  assert.equal(await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link').count(), 2);
+  for (const [name, heading] of [['Alerts', 'Current alert']]) {
     await page.getByRole('navigation', { name: 'Main navigation', exact: true }).getByRole('link', { name }).click();
     await loaded();
     await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible();
     assert.equal(await page.locator('#contract').inputValue(), 'GOLDM:2026-11-20:demo-v4');
+    await page.getByText('Alert settings', { exact: false }).click();
+    const changed = page.waitForResponse(r => r.url().endsWith('/api/pair') && r.status() === 200);
+    await page.getByLabel('Investigate |z| threshold').fill('1');
+    const pair = await (await changed).json();
+    assert.equal(pair.method.entry_z, 1);
+    await expect(page.getByTestId('signal-reason')).toHaveText(pair.latest.reason);
+    await page.setViewportSize({ width: 390, height: 844 });
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    await page.setViewportSize({ width: 1512, height: 1100 });
     await page.screenshot({ path: `../artifacts/${name.toLowerCase().replaceAll(' ', '-')}-desktop.png`, fullPage: true });
     reports.push(`${name}: navigation and API-backed view passed`);
   }
-  await page.getByRole('navigation', { name: 'Main navigation', exact: true }).getByRole('link', { name: 'Prices Follow one contract' }).click();
-  await expect(page.getByRole('heading', { name: 'Follow a gold contract', exact: true })).toBeVisible();
+  await page.getByRole('navigation', { name: 'Main navigation', exact: true }).getByRole('link', { name: 'Monitor' }).click();
+  await expect(page.getByRole('heading', { name: 'Monitor', exact: true })).toBeVisible();
   await loaded();
   await page.getByText('Change research time', { exact: false }).click();
   await page.getByRole('button', { name: 'Apply time' }).click();
@@ -116,8 +127,25 @@ try {
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, 'Mobile page must not overflow horizontally');
   await page.screenshot({ path: '../artifacts/dashboard-mobile.png', fullPage: true });
   reports.push('Mobile 390px: navigation visible, no page-level horizontal overflow');
+  const datasetRequests = [];
+  page.on('request', request => { if (request.url().includes('/api/contracts?')) datasetRequests.push(new URL(request.url()).searchParams.get('dataset')); });
+  await page.getByLabel('Dataset', { exact: true }).selectOption('real');
+  await expect(page.getByText('IMPORTED REAL DATA', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Price history', exact: false })).toHaveCount(0);
+  await expect(page.getByRole('main').getByRole('alert')).toContainText('DATASET_UNAVAILABLE');
+  assert.ok(datasetRequests.length > 0);
+  assert.ok(datasetRequests.every(dataset => dataset === 'real'), 'Real navigation must not request synthetic contracts');
+  await page.getByRole('navigation').getByRole('link', { name: 'Alerts' }).click();
+  await expect(page.getByText('IMPORTED REAL DATA', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Current alert' })).toHaveCount(0);
+  await expect(page.getByRole('main').getByRole('alert')).toContainText('DATASET_UNAVAILABLE');
+  for (const route of ['/compare', '/signals', '/backtest']) {
+    assert.equal((await page.request.get(base + route)).status(), 404);
+  }
+  reports.push('Real dataset failure never substitutes synthetic results; removed product routes return 404');
   assert.deepEqual(errors, [], 'Browser must have no uncaught JavaScript errors');
   reports.push('No uncaught browser JavaScript errors');
   await writeFile('../artifacts/browser-results.json', JSON.stringify(reports, null, 2));
   for (const report of reports) console.log(`PASS ${report}`);
+  await page.unrouteAll({ behavior: 'wait' });
 } finally { await browser.close(); }

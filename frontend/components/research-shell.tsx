@@ -2,25 +2,21 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { Activity, ArrowDownUp, CircleHelp, Database, FlaskConical, LayoutDashboard, RefreshCw, Timer, TriangleAlert } from "lucide-react";
+import { Bell, CircleHelp, Database, FlaskConical, LayoutDashboard, RefreshCw, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { api } from "@/lib/api";
 import type { Contract, Dataset, Research, View } from "@/lib/types";
-import { Dashboard } from "@/components/research-views";
-import { PairWorkspace } from "@/components/pair-workspace";
+import { MonitorPrices, NormalizedComparison } from "@/components/research-views";
+import { AlertsWorkspace } from "@/components/pair-workspace";
 
 const navigation = [
-  { view: "dashboard", label: "Prices", hint: "Follow one contract", href: "/", icon: LayoutDashboard },
-  { view: "compare", label: "Compare prices", hint: "See contracts side by side", href: "/compare", icon: ArrowDownUp },
-  { view: "signals", label: "Price signals", hint: "Compare matched pair spreads", href: "/signals", icon: Activity },
-  { view: "backtest", label: "Paired backtest", hint: "Hypothetical trades after assumed costs", href: "/backtest", icon: Timer },
+  { view: "monitor", label: "Monitor", hint: "Prices and normalized comparisons", href: "/", icon: LayoutDashboard },
+  { view: "alerts", label: "Alerts", hint: "Matched-pair research flags", href: "/alerts", icon: Bell },
 ] as const;
 const headings: Record<View, [string, string]> = {
-  dashboard: ["Follow a gold contract", "Choose a contract below to see its price, recent movement and trading activity."],
-  compare: ["Compare gold prices", "See prices per gram across contracts. The contract you choose below is the reference for each price difference."],
-  signals: ["Is the matched pair spread unusual?", "Choose two contracts with the same expiry to see whether their price difference is unusual."],
-  backtest: ["Test hypothetical paired trades", "Choose a pair, review the assumed costs, then run a hypothetical simulation."],
+  monitor: ["Monitor", "Review gold prices, exact expiries and normalized contract comparisons at your selected cutoff."],
+  alerts: ["Alerts", "Inspect matched-pair research flags at the selected cutoff. Refresh to re-evaluate; no background notifications or trade execution."],
 };
 
 export function ResearchShell({ view }: { view: View }) {
@@ -33,7 +29,8 @@ export function ResearchShell({ view }: { view: View }) {
     return () => { observer.disconnect(); document.documentElement.style.removeProperty("--dataset-banner-height"); };
   }, []);
   const [dataset, setDataset] = useState<Dataset>("synthetic");
-  useEffect(() => { if (new URLSearchParams(window.location.search).get("dataset") === "real") setDataset("real"); }, []);
+  const [initialized, setInitialized] = useState(false);
+  useEffect(() => { if (new URLSearchParams(window.location.search).get("dataset") === "real") setDataset("real"); setInitialized(true); }, []);
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [selected, setSelected] = useState("");
   const [asOf, setAsOf] = useState("");
@@ -54,6 +51,7 @@ export function ResearchShell({ view }: { view: View }) {
   }
 
   useEffect(() => {
+    if (!initialized) return;
     const controller = new AbortController();
     setBooting(true); setData(null); setError("");
     const queryCutoff = asOf || new URLSearchParams(window.location.search).get("asOf");
@@ -73,7 +71,7 @@ export function ResearchShell({ view }: { view: View }) {
       setHealthy(health.status === "ok"); setLoading(false); setBooting(false);
     }).catch(e => { if (!controller.signal.aborted) { setError(e.message); setHealthy(false); setBooting(false); } });
     return () => controller.abort();
-  }, [retry, dataset, asOf]);
+  }, [retry, dataset, asOf, initialized]);
 
   useEffect(() => {
     if (booting || !selected || !asOf) return;
@@ -90,7 +88,7 @@ export function ResearchShell({ view }: { view: View }) {
     return () => controller.abort();
   }, [selected, asOf, booting, retry, dataset, unavailableSelection]);
 
-  const query = selected && asOf ? `?${new URLSearchParams({ contract: selected, asOf, dataset })}` : "";
+  const query = `?${new URLSearchParams({ dataset, ...(selected ? { contract: selected } : {}), ...(asOf ? { asOf } : {}) })}`;
   const busy = booting || loading;
   return <div className="min-h-screen">
     <header className="border-b border-border bg-card">
@@ -103,12 +101,12 @@ export function ResearchShell({ view }: { view: View }) {
       <div className="mx-auto flex max-w-6xl items-start gap-3 px-5 py-3 text-xs leading-5 sm:px-8 sm:text-sm"><FlaskConical size={18} className="mt-0.5 shrink-0 text-primary" /><p><strong className="text-primary">{dataset === "synthetic" ? "SYNTHETIC DATA" : "IMPORTED REAL DATA"}</strong><span className="ml-2 text-muted-foreground">{dataset === "synthetic" ? "Invented prices and contract terms. No live market data." : "Locally imported records. No live feed or synthetic fallback."}</span></p></div>
     </div>
     <div className="mx-auto max-w-6xl px-5 py-6 sm:px-8">
-      <nav aria-label="Main navigation" className="mb-7 grid grid-cols-2 gap-1 rounded-lg bg-card p-1 sm:grid-cols-4">{navigation.map(n => <Link key={n.view} href={n.href + query} aria-current={view === n.view ? "page" : undefined} className={`rounded-md px-3 py-3 ${view === n.view ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}><span className="flex items-center gap-2 text-sm font-semibold"><n.icon size={17} className="shrink-0" />{n.label}</span><span className="sr-only">{n.hint}</span></Link>)}</nav>
+      <nav aria-label="Main navigation" className="mb-7 grid grid-cols-2 gap-1 rounded-lg bg-card p-1 ">{navigation.map(n => <Link key={n.view} href={n.href + query} aria-current={view === n.view ? "page" : undefined} className={`rounded-md px-3 py-3 ${view === n.view ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}><span className="flex items-center gap-2 text-sm font-semibold"><n.icon size={17} className="shrink-0" />{n.label}</span><span className="sr-only">{n.hint}</span></Link>)}</nav>
       <main id="main-content">
         <div className="mb-6"><h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{headings[view][0]}</h1><p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">{headings[view][1]}</p></div>
-        <Card className="mb-6 p-4 sm:p-5"><label className="mb-4 block max-w-sm text-sm">Dataset<select aria-label="Dataset" className="field mt-2" value={dataset} onChange={e => { setData(null); setSelected(""); setDataset(e.target.value as Dataset); }}><option value="synthetic">Synthetic demo v4</option><option value="real">Imported real data</option></select></label>
+        <Card className="mb-6 p-4 sm:p-5"><label className="mb-4 block max-w-sm text-sm">Dataset<select aria-label="Dataset" className="field mt-2" value={dataset} onChange={e => { setData(null); setContracts([]); setSelected(""); setBooting(true); setError(""); setDataset(e.target.value as Dataset); const url = new URL(window.location.href); url.searchParams.set("dataset", e.target.value); url.searchParams.delete("contract"); window.history.replaceState(null, "", url); }}><option value="synthetic">Synthetic demo v4</option><option value="real">Imported real data</option></select></label>
           <div className="flex flex-wrap items-end gap-4">
-            <div className="min-w-0 flex-1 basis-64"><label htmlFor="contract" className="mb-2 block text-sm font-medium">{view === "compare" ? "Compare against this contract" : view !== "dashboard" ? "First contract (A)" : "Choose a gold contract"}</label><select id="contract" className="field" value={selected} disabled={booting || !contracts.length} onChange={e => chooseContract(e.target.value)}>{unavailableSelection && <option value={selected} disabled>Unavailable: {selected}</option>}{!contracts.length && <option value="">{booting ? "Loading contracts..." : "No contracts available"}</option>}{contracts.map(c => <option key={c.contract_id} value={c.contract_id}>{contractName(c.symbol)} ({c.symbol}) / expires {c.expiry}</option>)}</select><p className="mt-2 text-xs leading-5 text-muted-foreground">Expiry is the exact date the contract ends. Each expiry is a separate contract.</p></div>
+            <div className="min-w-0 flex-1 basis-64"><label htmlFor="contract" className="mb-2 block text-sm font-medium">{view === "alerts" ? "First contract (A)" : "Choose a gold contract"}</label><select id="contract" className="field" value={selected} disabled={booting || !contracts.length} onChange={e => chooseContract(e.target.value)}>{unavailableSelection && <option value={selected} disabled>Unavailable: {selected}</option>}{!contracts.length && <option value="">{booting ? "Loading contracts..." : "No contracts available"}</option>}{contracts.map(c => <option key={c.contract_id} value={c.contract_id}>{contractName(c.symbol)} ({c.symbol}) / expires {c.expiry}</option>)}</select><p className="mt-2 text-xs leading-5 text-muted-foreground">Expiry is the exact date the contract ends. Each expiry is a separate contract.</p></div>
             <Button variant="outline" onClick={() => setRetry(r => r + 1)} disabled={busy}><RefreshCw size={14} className={busy ? "animate-spin" : ""} />Reload data</Button>
           </div>
           <details className="mt-4 border-t border-border pt-4"><summary className="text-sm text-muted-foreground">Change research time <span className="mt-1 block text-xs">Using information available by {asOf ? asOf.replace("T", " ").replace("Z", " UTC") : "?"}</span></summary>
@@ -120,13 +118,13 @@ export function ResearchShell({ view }: { view: View }) {
           </details>
         </Card>
         <div role="status" aria-live="polite" className="mb-5 text-xs leading-5 text-muted-foreground">{data ? `${data.spec.symbol} ? ${data.metrics.count} available prices ? As of ${data.as_of.replace("T", " ").replace("Z", " UTC")}` : busy ? "Loading research..." : "No results displayed"}</div>
-        {error ? <Card className="p-8" role="alert"><TriangleAlert className="mb-3 text-warning" /><h2 className="font-medium">Unable to load research</h2><p className="mt-2 max-w-2xl text-sm text-muted-foreground">{error}</p><Button className="mt-5" variant="outline" onClick={() => unavailableSelection && contracts.length ? chooseContract(contracts.find(c => c.symbol === "GOLDM")?.contract_id || contracts[0].contract_id) : setRetry(r => r + 1)}>{unavailableSelection && contracts.length ? "Use an available contract" : "Retry connection"}</Button></Card> : busy ? <Loading /> : !data || (!data.latest && view === "dashboard") ? <Card className="p-10 text-center"><Database className="mx-auto mb-4 text-muted-foreground" /><h2 className="text-lg">No prices available at this time</h2><p className="mx-auto mt-3 max-w-md text-sm leading-6 text-muted-foreground">{data?.spec.normalization_reason || (dataset === "real" && !contracts.length ? "No imported contracts are available at this cutoff. Import validated real records or choose Synthetic demo to explore the app." : "Open Change research time and choose a later time. No future prices or substitute datasets are shown.")}</p></Card> : <>
-          {view === "dashboard" && data.latest && <Dashboard data={data} />}{view !== "dashboard" && <PairWorkspace key={data.dataset + data.spec.contract_id + data.as_of} data={data} contracts={contracts} view={view} />}
+        {error ? <Card className="p-8" role="alert"><TriangleAlert className="mb-3 text-warning" /><h2 className="font-medium">Unable to load research</h2><p className="mt-2 max-w-2xl text-sm text-muted-foreground">{error}</p><Button className="mt-5" variant="outline" onClick={() => unavailableSelection && contracts.length ? chooseContract(contracts.find(c => c.symbol === "GOLDM")?.contract_id || contracts[0].contract_id) : setRetry(r => r + 1)}>{unavailableSelection && contracts.length ? "Use an available contract" : "Retry connection"}</Button></Card> : busy ? <Loading /> : !data || (!data.latest && view === "monitor") ? <Card className="p-10 text-center"><Database className="mx-auto mb-4 text-muted-foreground" /><h2 className="text-lg">No prices available at this time</h2><p className="mx-auto mt-3 max-w-md text-sm leading-6 text-muted-foreground">{data?.spec.normalization_reason || (dataset === "real" && !contracts.length ? "No imported contracts are available at this cutoff. Import validated real records or choose Synthetic demo to explore the app." : "Open Change research time and choose a later time. No future prices or substitute datasets are shown.")}</p></Card> : <>
+          {view === "monitor" && data.latest && <><MonitorPrices data={data} /><NormalizedComparison data={data} /></>}{view === "alerts" && <AlertsWorkspace key={data.dataset + data.spec.contract_id + data.as_of} data={data} contracts={contracts} />}
         </>}
         {data && data.issues.length > 0 && <Card className="mt-5 p-5"><h2 className="font-medium">Blocked price records</h2>{data.issues.map((issue, i) => <p className="mt-2 text-xs" key={i}>{issue.contract_id} / {issue.trading_date}: {issue.code} - {issue.reason}</p>)}</Card>}
-        <details className="mt-6 rounded-lg border border-border bg-card p-4 text-sm"><summary>Terms explained</summary><dl className="mt-4 grid gap-4 text-sm leading-6 sm:grid-cols-2"><div><dt className="font-medium">Quote price</dt><dd className="text-muted-foreground">The price for the contract&apos;s stated weight of gold. Use Compare prices to see a common price per gram.</dd></div><div><dt className="font-medium">Trading volume</dt><dd className="text-muted-foreground">The number of contracts traded during the recorded period.</dd></div><div><dt className="font-medium">Open interest</dt><dd className="text-muted-foreground">The number of contracts still open, rather than closed or settled.</dd></div><div><dt className="font-medium">Baseline and signals</dt><dd className="text-muted-foreground">Spread is left minus right in 999-purity INR/gram. A z-score measures its distance from the prior spread mean in sample standard deviations (ddof=1), excluding the current spread.</dd></div></dl></details>
+        <details className="mt-6 rounded-lg border border-border bg-card p-4 text-sm"><summary>Terms explained</summary><dl className="mt-4 grid gap-4 text-sm leading-6 sm:grid-cols-2"><div><dt className="font-medium">Quote price</dt><dd className="text-muted-foreground">The price for the contract&apos;s stated weight of gold. The Monitor comparison uses a common price per gram.</dd></div><div><dt className="font-medium">Trading volume</dt><dd className="text-muted-foreground">The number of contracts traded during the recorded period.</dd></div><div><dt className="font-medium">Open interest</dt><dd className="text-muted-foreground">The number of contracts still open, rather than closed or settled.</dd></div><div><dt className="font-medium">Baseline and signals</dt><dd className="text-muted-foreground">Spread is left minus right in 999-purity INR/gram. A z-score measures its distance from the prior spread mean in sample standard deviations (ddof=1), excluding the current spread.</dd></div></dl></details>
         {data && <details className="mt-3 rounded-lg border border-border p-4 text-sm"><summary className="text-muted-foreground">Technical details / API response</summary><pre data-testid="api-response" className="mt-4 max-h-80 overflow-auto text-xs leading-5 text-muted-foreground">{JSON.stringify(data, null, 2)}</pre></details>}
-        <footer className="mt-8 border-t border-border py-5 text-xs leading-6 text-muted-foreground"><CircleHelp className="mr-1.5 inline size-3" />{data?.disclaimer ?? "Synthetic research only. No guaranteed arbitrage. Fees, taxes, slippage, liquidity, execution and settlement uncertainty matter. No trade execution."}</footer>
+        <footer className="mt-8 border-t border-border py-5 text-xs leading-6 text-muted-foreground"><CircleHelp className="mr-1.5 inline size-3" />{data?.disclaimer ?? "Research only. No guaranteed arbitrage. Fees, taxes, slippage, liquidity, execution and settlement uncertainty matter. No trade execution."}</footer>
       </main>
     </div>
   </div>;

@@ -10,7 +10,7 @@ const number = (value: number | null, digits = 0) => value === null ? "—" : va
 const money = (value: number | null) => value === null ? "—" : `₹${number(value, 2)}`;
 const percent = (value: number | null) => value === null ? "—" : `${value > 0 ? "+" : ""}${number(value, 3)}%`;
 
-export function Dashboard({ data }: { data: Research }) {
+export function MonitorPrices({ data }: { data: Research }) {
   const latest = data.latest!;
   const [all, setAll] = useState(false);
   return <div className="space-y-5">
@@ -33,7 +33,7 @@ function Metric({ label, value, detail, icon, primary = false }: { label: string
   return <Card className={`p-5 ${primary ? "border-primary/25 bg-gradient-to-br from-primary/[.05] to-card" : ""}`}><div className="flex items-center justify-between gap-2 text-xs text-muted-foreground"><span>{label}</span><span className={primary ? "text-primary" : "text-muted-foreground/60"}>{icon}</span></div><p className={`number my-5 text-[27px] ${primary ? "text-primary" : ""}`}>{value}</p><div className="text-xs leading-5 text-muted-foreground">{detail}</div></Card>;
 }
 function Detail({ label, value }: { label: string; value: string }) { return <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{label}</dt><dd className="number text-right text-xs">{value}</dd></div>; }
-function PriceChart({ prices }: { prices: Price[] }) {
+export function PriceChart({ prices }: { prices: Price[] }) {
   // These transforms place API price values on an SVG; they do not calculate indicators.
   const [hovered, setHovered] = useState<number | null>(null);
   const values = prices.map(p => p.price);
@@ -71,4 +71,9 @@ function PriceChart({ prices }: { prices: Price[] }) {
       <text x="8" y="254" fill="#778595" fontSize="10">{prices[0]?.trading_date}</text><text x="690" y="254" textAnchor="end" fill="#778595" fontSize="10">{prices.at(-1)?.trading_date}</text>
     </svg>
   </div>;
+}
+
+export function NormalizedComparison({ data }: { data: Research }) {
+  const fmt = number;
+  return <Card><CardHeader><CardTitle>Prices side by side</CardTitle></CardHeader><CardContent><p className="mb-4 text-sm leading-6 text-muted-foreground">Compare the INR per gram (999) column for a common weight and purity. Pairs must share the exact expiry date.</p><div className="table-wrap"><table className="data-table"><thead><tr><th>Contract / exact expiry</th><th>Quote INR</th><th>Quote / lot grams</th><th>Quoted purity per mille</th><th>INR / gram (999)</th><th>Trading date / availability</th></tr></thead><tbody>{data.pairing.normalization.map(({contract:c,latest:r,reason}) => <tr key={c.contract_id} className={c.contract_id === data.spec.contract_id ? "selected-row" : ""}><td>{c.symbol}<br/>{c.expiry}<br/>{c.spec_version}</td><td>{r ? fmt(r.price) : "Unavailable"}</td><td>{c.quotation_grams ?? "Unknown"} / {c.lot_size_grams ?? "Unknown"}</td><td>{c.quote_purity_per_mille ?? "Unknown"}</td><td>{r ? fmt(Number(r.normalized_999_inr_per_gram), 4) : reason}</td><td>{r?.trading_date}<br/>{r?.normalized_available_at}</td></tr>)}</tbody></table></div></CardContent></Card>;
 }

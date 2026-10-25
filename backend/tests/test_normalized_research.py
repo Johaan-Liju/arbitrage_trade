@@ -106,9 +106,7 @@ def test_pair_endpoint_enforces_expiry_even_when_calendar_opted_in(app):
     assert Decimal(first["raw_pair_spread_decimal"]) == Decimal(first["a"]["normalized_999_inr_per_gram"]) - Decimal(first["b"]["normalized_999_inr_per_gram"])
     bad = {**req, "contract_b": "GOLDTEN:2026-12-22:demo-v4"}
     assert client.post("/api/pair", json=bad).status_code == 422
-    assert client.post("/api/backtest", json={**bad, "allow_calendar": True}).status_code == 422
-    run = client.post("/api/backtest", json={**req, "contract_a": B, "contract_b": "GOLDGUINEA:2026-11-20:demo-v4"})
-    assert run.status_code == 200 and run.json()["alignment"] == "EXACT_EXPIRY"
+
 
 
 @pytest.mark.parametrize("as_of,count", [("2026-08-31T18:00:00Z", 0), ("2026-09-01T16:04:59Z", 0), ("2026-09-01T16:05:00Z", 1)])

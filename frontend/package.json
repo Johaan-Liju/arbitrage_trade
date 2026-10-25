@@ -7,7 +7,7 @@
     "build": "next build --webpack",
     "start": "next start --hostname 127.0.0.1",
     "typecheck": "tsc --noEmit",
-    "test:browser": "node scripts/browser-check.mjs",
+    "test:browser": "node scripts/monitor-check.mjs",
     "lint": "eslint app components lib --max-warnings=0"
   },
   "dependencies": {

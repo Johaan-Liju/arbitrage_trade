@@ -56,11 +56,14 @@ def normalize_observation(row: dict, registry: ReferenceRegistry, calendar_id: s
         raise ReferenceFailure("CLOSED_SESSION", "Observation is outside its named trading session")
     for field in ("volume", "open_interest"):
         value = row.get(field)
+        if value is None or value == "":
+            continue  # Source did not supply this optional liquidity proxy.
         if isinstance(value, bool) or not str(value).isdigit():
             raise ReferenceFailure("INVALID_NUMBER", f"{field} must be a nonnegative integer")
     value = normalize_999(Decimal(str(row["price"])), spec, row["trading_date"], as_of)
     return {**row, "spec_version": spec.version, "price": str(row["price"]),
-            "volume": int(row["volume"]), "open_interest": int(row["open_interest"]),
+            "volume": int(row["volume"]) if row.get("volume") not in (None, "") else None,
+            "open_interest": int(row["open_interest"]) if row.get("open_interest") not in (None, "") else None,
             "lot_size_grams": str(spec.lot_size_grams), "quotation_grams": str(spec.quotation_grams),
             "quote_purity_per_mille": str(spec.quote_purity_per_mille), "calendar_id": calendar_id,
             "normalized_available_at": max(available, spec.available_at, listing.available_at, calendar.available_at),

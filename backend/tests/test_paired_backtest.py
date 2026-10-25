@@ -134,26 +134,13 @@ def test_exit_cannot_fill_past_deadline_and_unavailable_fill_is_not_used():
     assert not run['trades'] and any('unavailable at as-of' in r['reason'] for r in run['rejections'])
 
 
-def test_active_api_cost_settings_and_stored_ledger(tmp_path):
-    import json
-    import sqlite3
+def test_simulation_removed_from_active_api(tmp_path):
     from fastapi.testclient import TestClient
     from backend.main import create_app
-    path=tmp_path/'synthetic.sqlite3'
-    body=dict(contract_a='GOLDTEN:2026-11-20:demo-v4',contract_b='GOLDGUINEA:2026-11-20:demo-v4',
-              as_of='2026-10-23T18:00:00Z',max_holding_days=3,costs_a={'tax_bps':2},costs_b={'fixed_inr':7})
-    with TestClient(create_app(path,tmp_path/'real.sqlite3')) as client:
-        response=client.post('/api/backtest',json=body)
-        assert response.status_code==200
-        run=response.json()
-        assert run['trades'] and run['config']['costs_a']['tax_bps']==2
-        assert run['realized_net_pnl']==pytest.approx(sum(t['net_pnl'] for t in run['trades']))
-        for trade in run['trades']:
-            assert trade['legs'][1]['entry_cost_items']['fixed']==7
-        with sqlite3.connect(path) as db:
-            saved=json.loads(db.execute('SELECT payload FROM backtest_runs WHERE run_id=?',(run['run_id'],)).fetchone()[0])
-            assert saved==run
-        assert client.post('/api/backtest',json={**body,'costs_a':{'tax_bps':-1}}).status_code==422
+    with TestClient(create_app(tmp_path / 's.sqlite3', tmp_path / 'r.sqlite3')) as client:
+        for route in ('/api/backtest', '/backtest'):
+            assert client.post(route, json={}).status_code == 404
+        assert '/api/ingest' in client.get('/openapi.json').json()['paths']
 
 
 def test_no_trade_explains_threshold_without_fabricating_trades():

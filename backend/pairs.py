@@ -89,7 +89,9 @@ def pair_history(specs, histories, request):
                 reasons.append(f"Stale/unavailable spec or reference: {spec['symbol']}")
             if seconds(decision, row["observed_at"]) > request.max_age_days * 86400 or seconds(decision, day + 'T00:00:00Z') > request.max_age_days * 86400:
                 reasons.append(f"Stale observation: {spec['symbol']}")
-            if row["volume"] < request.min_volume or row["open_interest"] < request.min_oi:
+            if row.get("volume") is None or row.get("open_interest") is None:
+                reasons.append(f"Source did not supply volume/OI: {spec['symbol']}")
+            elif row["volume"] < request.min_volume or row["open_interest"] < request.min_oi:
                 reasons.append(f"Insufficient volume/OI proxy: {spec['symbol']}")
             if spec["safe_exit_date"] and day > spec["safe_exit_date"]:
                 reasons.append(f"Past safe exit: {spec['symbol']}")

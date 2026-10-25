@@ -1,7 +1,5 @@
 import type { Contract, Price } from "./types";
 export type SignalStatus = "Investigate" | "No signal" | "Insufficient data";
-export type LegCosts = { exchange_bps: number; tax_bps: number; other_bps: number; fixed_inr: number };
-export type BacktestConfig = { contract_a: string; contract_b: string; dataset: string; as_of: string; lookback: number; min_observations: number; entry_z: number; exit_z: number; max_holding_days: number; max_lots: number; fee_bps: number; slippage_bps: number; costs_a: LegCosts; costs_b: LegCosts; max_age_days: number; min_volume: number; min_oi: number; max_participation: number; initial_capital: number; allow_calendar: boolean };
 export type PairEvent = {
   trading_date: string; decision_at: string; normalized_a: number; normalized_b: number;
   raw_pair_spread: number | null; expected_basis: number | null;
@@ -18,15 +16,3 @@ export type PairResult = { basis_differences: {field: string; left: unknown; rig
   history: PairEvent[]; latest: PairEvent | null;
   quality: { missing_dates: { trading_date: string; reason: string }[]; calendar: string; no_forward_fill: boolean };
 };
-export type Leg = { contract_id: string; quote_grams: number; lot_grams: number; currency: string; entry_observed_at: string; entry_available_at: string; exit_observed_at: string; exit_available_at: string; entry_cost_items: Record<string,number>; exit_cost_items: Record<string,number>; symbol: string; expiry: string; spec_version: string; side: string; lots: number; grams: number;
-  entry_quote: number; exit_quote: number; entry_notional: number; exit_notional: number;
-  entry_fee: number; exit_fee: number; entry_slippage: number; exit_slippage: number; gross_pnl: number };
-export type Trade = { entry_fill_at: string; exit_fill_at: string; original_exit_signal_date: string; original_exit_decision_at: string; signal_observed_at: { a: string; b: string }; entry_signal_z: number; entry_costs: number; fill_assumption: string; residual_gross_grams: number; residual_fine_gold_grams: number; signal_date: string; entry_date: string; exit_signal_date: string; exit_date: string;
-  signal_available_at: string; exit_signal_available_at: string; entry_reason: string; exit_reason: string;
-  legs: Leg[]; gross_pnl: number; fees: number; slippage: number; net_pnl: number; directional_pnl_per_1_inr_999_g: number };
-export type OpenPosition = Pick<Trade, "entry_fill_at" | "signal_date" | "signal_available_at" | "signal_observed_at" | "entry_signal_z" | "entry_reason" | "entry_date" | "entry_costs" | "fill_assumption" | "residual_gross_grams" | "residual_fine_gold_grams" | "directional_pnl_per_1_inr_999_g"> & { legs: Omit<Leg, "exit_quote" | "exit_notional" | "exit_fee" | "exit_slippage" | "exit_observed_at" | "exit_available_at" | "exit_cost_items" | "gross_pnl">[]; last_mark_date: string; unrealized_gross_pnl: number | null; unrealized_net_pnl: number | null };
-export type BacktestResult = { diagnostics?: { paired_observations: number; scored_observations: number; entry_signals: number; peak_abs_z: number | null; entry_threshold: number }; dataset: string; as_of: string; config: BacktestConfig; spec_a: Contract; spec_b: Contract; alignment: string; realized_fees: number; realized_slippage: number; open_entry_costs: number; run_id: string; label: string; status: "COMPLETE" | "INCOMPLETE"; number_of_trades: number;
-  net_pnl: number | null; realized_net_pnl: number; gross_pnl: number; fees: number; slippage: number; max_drawdown: number | null;
-  safe_exit_date: string; lots_a: number; lots_b: number; reason: string; assumptions: string[];
-  trades: Trade[]; open_position: OpenPosition | null; rejections: { trading_date: string; signal_date: string; decision_at: string | null; action: string; outcome: "SKIPPED" | "UNFILLED"; reason: string }[];
-  equity_curve: { trading_date: string; equity: number | null; net_pnl: number | null; drawdown: number | null; reason: string }[] };

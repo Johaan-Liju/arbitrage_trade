@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 import json
 from pathlib import Path
 import sqlite3
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
 from .domain import DEFAULT_AS_OF, DISCLAIMER, utc
 from .reference import ReferenceFailure, ReferenceRegistry
@@ -11,8 +11,7 @@ from .ingestion import ImportManifest, import_csv, validate_csv
 from .synthetic_v4 import SYNTHETIC_DB, REAL_DB, seed
 from .research import research_snapshot, pair_catalog, quote_summary, basis_differences
 from .pairs import PairRequest, pair_history
-from .backtest import BacktestRequest, simulate
-from .store import connection, save_run
+from .monitor import monitor_view
 
 
 class IngestRequest(BaseModel):
@@ -76,6 +75,15 @@ def create_app(db_path: Path = SYNTHETIC_DB, real_db_path: Path = REAL_DB):
                 "backtest": {"method": "Single-contract signals retired; use explicitly matched pair rolling spread z-scores", "events": events},
                 "disclaimer": disclaimer(dataset)}
 
+    @app.get("/api/monitor")
+    def monitor(as_of: str, dataset: str = "synthetic", contract_id: str | None = None,
+                stale_after_hours: int = Query(default=72, ge=1, le=720)):
+        current = state(dataset, as_of)
+        try:
+            return {**monitor_view(current, contract_id, stale_after_hours), "disclaimer": disclaimer(dataset)}
+        except KeyError as error:
+            raise HTTPException(404, str(error)) from error
+
     def validated_pair(request):
         current = state(request.dataset, request.as_of)
         specs, histories = [], []
@@ -111,21 +119,6 @@ def create_app(db_path: Path = SYNTHETIC_DB, real_db_path: Path = REAL_DB):
     @app.post("/api/pair")
     def pair(request: PairRequest):
         return validated_pair(request)
-
-    @app.post("/backtest")
-    @app.post("/api/backtest")
-    def backtest(request: BacktestRequest):
-        pair = validated_pair(request)
-        specs = [pair["spec_a"], pair["spec_b"]]
-        if any(not s["safe_exit_date"] or not s["tender_start"] or not s["lot_grams"].is_integer() for s in specs):
-            raise HTTPException(422, "Simulation requires explicit safe-exit/delivery dates and whole-gram lot sizes")
-        for spec in specs:
-            spec["lot_grams"] = int(spec["lot_grams"])
-        result = simulate(pair, request)
-        result["label"] = f"{request.dataset.upper()} HYPOTHETICAL SIMULATION"
-        with connection(paths[request.dataset]) as db:
-            save_run(db, result)
-        return result
 
     @app.post("/api/ingest")
     def csv_ingest(request: IngestRequest):

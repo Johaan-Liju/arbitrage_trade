@@ -134,8 +134,8 @@ def validate_csv(content: str, manifest: ImportManifest, registry: ReferenceRegi
             original = dict(zip(CSV_COLUMNS, cells))
             row = original
             try:
-                if any(not cell or cell != cell.strip() for cell in cells):
-                    raise ReferenceFailure("MISSING_OR_PADDED_VALUE", "Every field is required; whitespace is not silently trimmed")
+                if any((not cell and field not in ("volume", "open_interest")) or cell != cell.strip() for field, cell in row.items()):
+                    raise ReferenceFailure("MISSING_OR_PADDED_VALUE", "Identity, prices and provenance are required; whitespace is not silently trimmed")
                 if row["dataset"] != manifest.dataset:
                     raise ReferenceFailure("DATASET_MISMATCH", "Row dataset does not match import manifest")
                 expiry = exact_date(row["expiry"])
@@ -151,8 +151,9 @@ def validate_csv(content: str, manifest: ImportManifest, registry: ReferenceRegi
                     raise ReferenceFailure("UNEXPECTED_CONTRACT", "Row contract/spec is not in the explicit import manifest")
                 for field in ("price", "quotation_grams", "quote_purity_per_mille"):
                     decimal_cell(row[field], field)
-                integer_cell(row["volume"], "volume")
-                integer_cell(row["open_interest"], "open_interest")
+                for field in ("volume", "open_interest"):
+                    if row[field] != "":
+                        integer_cell(row[field], field)
                 result = normalize_observation(row, registry, manifest.calendar_id, manifest.as_of)
                 value = Decimal(result["normalized_999_inr_per_gram"])
                 if not manifest.min_normalized_inr_per_gram <= value <= manifest.max_normalized_inr_per_gram:
