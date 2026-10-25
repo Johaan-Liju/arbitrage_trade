@@ -12,6 +12,9 @@ from .synthetic_v4 import SYNTHETIC_DB, REAL_DB, seed
 from .research import research_snapshot, pair_catalog, quote_summary, basis_differences
 from .pairs import PairRequest, pair_history
 from .monitor import monitor_view
+from .opportunity import OpportunityRequest, predict as predict_opportunity
+from .opportunity_evaluation import evaluate as evaluate_opportunity
+from . import alerts
 
 
 class IngestRequest(BaseModel):
@@ -22,8 +25,9 @@ class IngestRequest(BaseModel):
     dry_run: bool = True
 
 
-def create_app(db_path: Path = SYNTHETIC_DB, real_db_path: Path = REAL_DB):
+def create_app(db_path: Path = SYNTHETIC_DB, real_db_path: Path = REAL_DB, alert_root: Path | None = None):
     paths = {"synthetic": Path(db_path), "real": Path(real_db_path)}
+    notification_root = alert_root or Path(__file__).resolve().parents[1] / "data/notifications"
     if paths["synthetic"].resolve() == paths["real"].resolve():
         raise ValueError("Synthetic and real databases must be separate")
 
@@ -83,6 +87,58 @@ def create_app(db_path: Path = SYNTHETIC_DB, real_db_path: Path = REAL_DB):
             return {**monitor_view(current, contract_id, stale_after_hours), "disclaimer": disclaimer(dataset)}
         except KeyError as error:
             raise HTTPException(404, str(error)) from error
+
+    @app.post("/api/opportunities/evaluate")
+    def opportunities(request: OpportunityRequest):
+        return opportunity_response(evaluate_opportunity, request)
+
+    @app.post("/api/opportunities/predict")
+    def opportunity_prediction(request: OpportunityRequest):
+        return opportunity_response(predict_opportunity, request)
+
+    def alert_response(operation, *args):
+        try:
+            return operation(*args)
+        except ReferenceFailure as error:
+            raise HTTPException(404 if error.code in ("DATASET_UNAVAILABLE", "UNKNOWN_SESSION", "UNKNOWN_ALERT") else 409,
+                                f"{error.code}: {error}") from error
+        except (ValueError, KeyError, OSError, sqlite3.DatabaseError) as error:
+            raise HTTPException(409, "Alert inputs or local storage are unavailable; no substitute data") from error
+
+    @app.get("/api/alerts/catalog")
+    def alert_catalog(dataset: str = Query(default="synthetic", pattern="^(synthetic|real)$"), as_of: str = DEFAULT_AS_OF):
+        return alert_response(alerts.catalog, paths[dataset], dataset, as_of)
+
+    @app.get("/api/alerts/sessions")
+    def alert_sessions(dataset: str = Query(default="synthetic", pattern="^(synthetic|real)$")):
+        return alert_response(alerts.sessions, notification_root, dataset)
+
+    @app.post("/api/alerts/sessions")
+    def create_alert_session(request: alerts.NewSession):
+        return alert_response(alerts.new_session, paths[request.dataset], notification_root, request)
+
+    @app.post("/api/alerts/scan")
+    def scan_alerts(request: alerts.ScanRequest):
+        return alert_response(alerts.scan, paths[request.dataset], notification_root, request)
+
+    @app.get("/api/alerts/history")
+    def alert_history(session_id: str, as_of: str,
+                      dataset: str = Query(default="synthetic", pattern="^(synthetic|real)$")):
+        return alert_response(alerts.history, notification_root, dataset, session_id, as_of)
+
+    @app.post("/api/alerts/read")
+    def read_alert(session_id: str, alert_id: str,
+                   dataset: str = Query(default="synthetic", pattern="^(synthetic|real)$")):
+        return alert_response(alerts.mark_read, notification_root, dataset, session_id, alert_id)
+
+    def opportunity_response(operation, request):
+        try:
+            return operation(paths[request.dataset], request)
+        except ReferenceFailure as error:
+            raise HTTPException(404 if error.code in ("DATASET_UNAVAILABLE", "UNKNOWN_CONTRACT", "FUTURE_SPEC") else 422,
+                                f"{error.code}: {error}") from error
+        except (ValueError, KeyError, sqlite3.DatabaseError) as error:
+            raise HTTPException(409, "Stored dataset/reference validation failed; no substitute data") from error
 
     def validated_pair(request):
         current = state(request.dataset, request.as_of)

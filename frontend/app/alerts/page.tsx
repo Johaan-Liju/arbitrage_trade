@@ -1,2 +1,2 @@
-import { ResearchShell } from "@/components/research-shell";
-export default function Page() { return <ResearchShell view="alerts" />; }
+import { AlertsScreen } from "@/components/alerts-screen";
+export default function Page() { return <AlertsScreen />; }

@@ -1,6 +1,6 @@
 # Opportunity alert research specification
 
-**Version:** opportunity-v1-draft, 2026-10-25. **Status:** ready for review; no training authorized by this document. This specifies research outcomes, not executable opportunities or guaranteed arbitrage. No models, outcome labels, orders or fills were produced in this task.
+**Version:** opportunity-v1 specification, 2026-10-25. The original specification task produced no models or labels. Subsequently, the user authorized backend implementation: the deterministic baseline, cost-filtered model and hypothetical outcome evaluation are now implemented. See [implementation and evaluation](OPPORTUNITY_EVALUATION.md). No fitted ML model, orders or observed fills have been produced.
 
 ## 1. Decision and proposed first use case
 

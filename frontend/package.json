@@ -8,6 +8,7 @@
     "start": "next start --hostname 127.0.0.1",
     "typecheck": "tsc --noEmit",
     "test:browser": "node scripts/monitor-check.mjs",
+    "test:alerts": "node scripts/alerts-check.mjs",
     "lint": "eslint app components lib --max-warnings=0"
   },
   "dependencies": {

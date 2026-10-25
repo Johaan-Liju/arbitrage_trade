@@ -28,9 +28,9 @@ npm.cmd run dev
 ## Explore the app
 
 1. **Monitor** (`/`): select a symbol, exact expiry and specification version. Maintain a dataset-specific watchlist; inspect prices, changes, aligned spreads, source timestamps, freshness and the selected contract chart. Freshness is measured at the explicit cutoff with a configurable threshold. Volume and open interest appear only when supplied by the source.
-2. **Alerts** (`/alerts`): inspect a matched pair's research flag, adjust prior-only lookback and threshold settings, and review quality, liquidity, delivery and settlement limitations.
+2. **Alerts** (`/alerts`): in-app paper notifications from the evaluated `opportunity-v1` model for one exact-expiry pair. Each alert shows contracts, exact expiry, signal time, horizon, model version, supporting observations, estimated costs, and liquidity and settlement uncertainty, with a history of later paper outcomes. Thresholds, freshness, cooldown and lifetime are configurable per paper session.
 
-Alerts are evaluated at the explicit cutoff when loaded or refreshed; they are not background notifications. Compare, Signals and Backtest routes have been removed. The active API no longer exposes simulations. Offline simulation code and its regression tests remain as historical research reference.
+Alerts are scanned manually at an explicit cutoff; there is no background polling, no probability display (calibration is unevaluated) and no trade execution. Compare, Signals and Backtest routes have been removed. The active API no longer exposes simulations. Offline simulation code and its regression tests remain as historical research reference.
 
 Change research time to explore what was known at a specific UTC cutoff. Only records both observed and available by that cutoff are included. Data labels, costs and execution limitations remain relevant throughout.
 
@@ -54,6 +54,8 @@ The frontend displays backend results; financial calculations stay in Python. AP
 See [Monitor and Alerts scope](docs/MONITOR_ALERTS.md) for the inspection, component reuse, backend requirements and retained safeguards.
 
 Before predictive work, review the [opportunity research specification](docs/OPPORTUNITY_RESEARCH_SPEC.md) and its repository data audit. Current history is synthetic and does not support credible market forecast evaluation.
+
+The [deterministic opportunity evaluation](docs/OPPORTUNITY_EVALUATION.md) documents the backend prediction/evaluation endpoints, leakage safeguards, estimated costs and experimental held-out results.
 
 **Legacy reference:** `src/`, `dist/`, `test/`, `backend/legacy_api.py` and `backend/legacy_ingestion.py` are retained for earlier slices. Start current work in `frontend/` and `backend/main.py`. Legacy Node commands use the `:legacy` suffix.
 

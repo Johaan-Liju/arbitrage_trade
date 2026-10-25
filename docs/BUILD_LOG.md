@@ -622,3 +622,51 @@ Exact validation commands and actual results:
 - `git diff --check` - passed; existing LF/CRLF notices only. Application tests/build were not rerun because this task changes research documentation and adds a standalone read-only audit, without changing application behavior.
 
 Unresolved review items: task/pair selection, fixed horizon and missing-session policy, quality/liquidity limits, unverified cost budgets, materiality threshold, real-data collection/evaluation gates. These are preregistration proposals, not evidence of market profitability or statistical sufficiency. Training and label-builder implementation remain outside this completed specification task.
+
+## 2026-10-25 - Deterministic opportunity backend and walk-forward evaluation
+
+Implemented fixed prior-only z-score baseline, deterministic severe-cost reversion filter, and always-abstain control. No supervised parameter fitting. Added explicit exact contract/calendar selection, point-in-time reference validation, ten-session warm-up, fixed next-session entry/five-session outcome, whole-lot raw-quote accounting, itemized costs/slippage and censored missing endpoints. Current predictions recheck freshness and expose no outcome labels. Added POST /api/opportunities/predict and /api/opportunities/evaluate. Source datasets are read-only; CLI reports are immutable and separated by dataset.
+
+Evaluation groups all pairs by date, purges outcome-window overlap and unavailable labels, applies >=6-session embargo, and separates test blocks across planned outcome horizons. Metrics include alert frequency, complete/censored counts, scenario precision/returns, robust-positive precision, censoring bounds and conservative expiry/time-block uncertainty. No confidence interval is manufactured for inadequate samples. Reports explicitly remain EXPERIMENTAL and never identify daily price proxies as actual fills.
+
+Observed final synthetic result: 39 dates, 29 eligible decisions; two held-out blocks with 10 decisions. Baseline alerts once; BASE net +57.3184 bps / INR 3535.96694, STRESS +17.1802 bps / INR 1059.84388, SEVERE -43.0271 bps / INR -2654.34071. Label COST_SENSITIVE_POSITIVE. Robust precision 0/1; BASE positive precision 1/1, both descriptive only. Filtered model alerts zero times, so its precision/outcomes are undefined. There are zero matured candidate training examples after purge/embargo in either fold; no learned model was fitted. One completed outcome/expiry block cannot support uncertainty or superiority claims. Real data is absent and real requests fail without fallback.
+
+Reviewable results: docs/OPPORTUNITY_EVALUATION.md. Final report: docs/research/evaluations/synthetic/328f38620dca811605488161635a4c3bfd9ffb89e4072caf2655cbaab42ac4b1.json. Earlier f3bdf00e report retained as an intermediate immutable artifact. Protocol, implementation and input hashes are included in the final report.
+
+Exact validation commands and actual results:
+- `.\.venv\Scripts\python.exe -m pytest backend/tests/test_opportunity.py -q` - 17 passed in 3.24s, one existing Starlette/httpx deprecation warning. Later added a Decimal-boundary metric regression.
+- `.\.venv\Scripts\python.exe -m pytest backend/tests -q` - 148 passed in 27.34s, one existing Starlette/httpx deprecation warning. Includes API/dataset validation, read-only hash preservation, hand-calculated four-sided costs, future-price invariance, spec/version availability, missing endpoint censoring, label maturation, liquidity and safety gates, current inference freshness, overlapping/late-label purging, same-date grouping and reproducibility.
+- `.\.venv\Scripts\python.exe scripts/evaluate-opportunity.py --request docs/research/opportunity-synthetic-request.json --output-root docs/research/evaluations` - exit 0; generated the intermediate report, then the final report after record/provenance and metric additions. Both reported the same alert counts and economic scenarios.
+- `git diff --check` - final result recorded after documentation below.
+
+Limits: synthetic prices, calendar and liquidity with known injected anomalies; no real market evaluation, cost evidence, source revision vintages or observed execution. Bootstrap intervals are conditional on complete outcomes and only enabled with sufficient nonoverlapping expiry blocks/classes; currently withheld. Existing frontend behavior and loopback service configuration were not changed. No dependencies installed, deployment, push or trade execution.
+Final git diff --check: passed (exit 0; line-ending notices only).
+
+## 2026-10-25 - Restore screenshot Monitor workspace
+Observed: screenshots/Screenshot 2026-10-25 130100.jpg showed Monitor returning Not Found. Running port 8000 OpenAPI lacked /api/monitor although current source defines it. Restarted the identified local backend and rebuilt/restarted the loopback frontend. Monitor now returns eight synthetic watchlist rows and 39 selected price records at 2026-10-23T18:00:00Z.
+Design: replace the bare failure card with a useful workspace explanation, retry/contract controls and expandable technical details. Missing data still stays missing; no fabricated prices or dataset fallback.
+Validation commands and actual results:
+- `npm.cmd --prefix frontend run build`: passed, including TypeScript and static page generation.
+- `npm.cmd --prefix frontend run lint`: failed because eslint executable is absent; no dependencies installed.
+- `Invoke-RestMethod 'http://127.0.0.1:8000/api/monitor?dataset=synthetic&as_of=2026-10-23T18:00:00Z'`: succeeded; eight watchlist rows, 39 prices.
+- `node frontend/scripts/monitor-check.mjs` from repository root: assertions ran but artifact output failed EPERM because script resolves ../artifacts from working directory.
+- `node scripts/monitor-check.mjs` from frontend: exit 0; all seven browser checks passed, including prices/chart, selection, source failure/retry, mobile layout and real-data isolation. Artifacts saved within project.
+- `git diff --check`: passed; line-ending notices only.
+
+## 2026-10-25 - Alerts screen: paper notifications around the evaluated model
+
+Observed: the working tree already held an uncommitted, unlogged backend (`backend/alerts.py`, `/api/alerts/*` routes, `backend/tests/test_alerts.py`) and Alerts UI (`frontend/components/alerts-screen.tsx`, `lib/alert-types.ts`). I audited them against the request rather than rewriting. They already cover contract/exact expiry, signal time, horizon, model version, observations with observed/available times, itemized costs, liquidity/settlement uncertainty, null probability, configurable thresholds, deduplication, cooldown, expiry, outcome journal and suppression on missing/stale inputs. No browser test covered the new screen, and docs described Alerts as on-demand flags only.
+
+Added: `frontend/scripts/alerts-check.mjs` (`npm run test:alerts`), `scripts/serve-alert-test-api.py` (loopback test API with an isolated notification root), and updated README and docs/MONITOR_ALERTS.md. No product code changed.
+
+Design decisions: probabilities stay hidden because calibration is unevaluated. Real data has no registered evaluated model, so it can never alert. Alerts come only from `opportunity-v1`, bound by hash to the synthetic evaluation report. Scans are manual; there is no scheduler or external channel.
+
+Validation and actual outcomes:
+- `.\.venv\Scripts\python.exe -m pytest backend/tests -q`: first run 98 passed, 67 errors, all setup PermissionError on `C:\Users\Johaan Liju\AppData\Local\Temp\pytest-of-Johaan Liju` (sandbox restriction, not code). Rerun with `-p no:cacheprovider --basetemp=artifacts/pytest-tmp`: 165 passed, one existing Starlette/httpx deprecation warning.
+- `npm.cmd run typecheck` (frontend): passed. `npm.cmd --prefix frontend run build`: passed, routes `/`, `/alerts`, not-found.
+- `.\.venv\Scripts\python.exe scripts/serve-alert-test-api.py 8013 artifacts/alert-test-notifications` and `node node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port 3013` (from frontend): both started on loopback.
+- `GOLDLENS_TEST_URL=http://127.0.0.1:3013 GOLDLENS_TEST_API=http://127.0.0.1:8013 node scripts/alerts-check.mjs`: first run failed on a datetime fill format (seconds not accepted by the browser fill), second on my wrong expectation that cooldown would be reported at 2026-10-13 (threshold correctly takes precedence, since the spread had reverted). Fixed the test, added a dedup step at 2026-10-05T18:01. Final run passed all ten groups: evidence/uncalibrated disclosure, model abstention (COST_FILTER), |z|=100 suppression (THRESHOLD), baseline alert with full evidence (22 observations, horizon 2026-10-06 to 2026-10-13, costs, uncertainty, PENDING_ENTRY), read receipt and idempotent rescan, DEDUPLICATED at a new cutoff, COMPLETE / COST_SENSITIVE_POSITIVE outcome with preserved pending history and unchanged frozen evidence, STALE suppression at 2026-10-27, mobile 390px no overflow, real data DATASET_UNAVAILABLE with no synthetic requests or POSTs. No uncaught page errors.
+- `node scripts/monitor-check.mjs` against the same services: 7 PASS, no regression.
+- Stopped only the owned processes on ports 3013 and 8013.
+
+Limits: the evaluation is one synthetic expiry; the model had zero held-out alerts, and the baseline had one. User-chosen thresholds have no measured performance. Cooldown precedence behind threshold and dedup checks is covered by backend tests, not the browser. Outcomes use daily proxies, not fills. ESLint remains unavailable. Normal port 8000/3000 services were not restarted; rebuild them to see this build.
