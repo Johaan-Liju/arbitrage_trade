@@ -20,13 +20,8 @@ try {
   await loaded();
   await expect(page.getByText('SYNTHETIC DATA', { exact: true })).toBeVisible();
   assert.equal(await page.locator('#contract option').count(), 8);
-<<<<<<< HEAD
-  for (const [symbol, expiry] of [['GOLDTEN', '2026-11-24'], ['GOLDGUINEA', '2026-11-27'], ['GOLDPETAL', '2026-11-30'], ['GOLDM', '2026-11-20']]) {
-    const id = `${symbol}:${expiry}:demo-v3`;
-=======
   for (const [symbol, expiry] of [['GOLDTEN', '2026-11-20'], ['GOLDGUINEA', '2026-11-20'], ['GOLDPETAL', '2026-11-20'], ['GOLDM', '2026-11-20']]) {
     const id = `${symbol}:${expiry}:demo-v4`;
->>>>>>> 58455e0ad3016fd77becac210c1dd3a141d3a849
     const received = page.waitForResponse(r => r.url().includes('/api/research?') && r.url().includes(symbol) && r.status() === 200);
     await page.selectOption('#contract', id);
     const response = await received;
@@ -79,56 +74,6 @@ try {
   reports.push('Chart hover: all 39 dates/prices, stable vertical tracking and leave reset at desktop and mobile widths');
   await mkdir('../artifacts', { recursive: true });
   await page.screenshot({ path: '../artifacts/dashboard-desktop.png', fullPage: true });
-<<<<<<< HEAD
-  for (const [name, heading] of [['Compare', 'Contract comparison'], ['Signals', 'A transparent research rule'], ['Backtest', 'Hypothetical paired settlement replay']]) {
-    await page.getByRole('navigation', { name: 'Main navigation', exact: true }).getByRole('link', { name }).click();
-    await loaded();
-    await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible();
-    assert.equal(await page.locator('#contract').inputValue(), 'GOLDM:2026-11-20:demo-v3');
-    await page.screenshot({ path: `../artifacts/${name.toLowerCase()}-desktop.png`, fullPage: true });
-    reports.push(`${name}: navigation and API-backed view passed`);
-  }
-  await page.selectOption('#contract', 'GOLDTEN:2026-11-24:demo-v3');
-  await loaded();
-  await expect(page.getByText('CALENDAR_BASIS_DIFFERENCE', { exact: true })).toBeVisible();
-  await expect(page.locator('#pair-contract')).toHaveValue('GOLDGUINEA:2026-11-27:demo-v3');
-  let replayResponse = page.waitForResponse(r => r.url().endsWith('/api/backtest') && r.request().method() === 'POST');
-  await page.getByRole('button', { name: 'Run simulation', exact: true }).click();
-  let replay = await (await replayResponse).json();
-  assert.equal(replay.number_of_trades, 0);
-  assert.ok(replay.rejections.some(r => r.reason.includes('Calendar mismatch')));
-  await expect(page.getByRole('heading', { name: 'Rejected orders and decisions' })).toBeVisible();
-  await page.getByRole('checkbox').check();
-  replayResponse = page.waitForResponse(r => r.url().endsWith('/api/backtest') && r.request().method() === 'POST');
-  await page.getByRole('button', { name: 'Run simulation', exact: true }).click();
-  replay = await (await replayResponse).json();
-  assert.equal(replay.number_of_trades, 1);
-  assert.equal(replay.status, 'COMPLETE');
-  await expect(page.getByRole('heading', { name: 'Trade ledger' })).toBeVisible();
-  await expect(page.getByText('Trade 1', { exact: false }).first()).toBeVisible();
-  await page.screenshot({ path: '../artifacts/backtest-accepted-desktop.png', fullPage: true });
-  reports.push(`Paired replay: calendar rejection then accepted trade; backend net INR ${replay.net_pnl.toFixed(2)}`);
-  await page.getByLabel('Entry |z| threshold').fill('100');
-  await expect(page.getByRole('button', { name: 'Run simulation', exact: true })).toBeVisible();
-  replayResponse = page.waitForResponse(r => r.url().endsWith('/api/backtest') && r.request().method() === 'POST');
-  await page.getByRole('button', { name: 'Run simulation', exact: true }).click();
-  replay = await (await replayResponse).json();
-  assert.equal(replay.number_of_trades, 0);
-  assert.equal(replay.net_pnl, 0);
-  reports.push('High-threshold no-trade simulation: zero trades, zero net P&L');
-  await page.getByRole('navigation', { name: 'Main navigation', exact: true }).getByRole('link', { name: 'Compare', exact: true }).click();
-  await loaded();
-  await expect(page.getByRole('img', { name: 'Normalized price history', exact: true })).toBeVisible();
-  await expect(page.getByText('INVESTIGATE', { exact: true }).first()).toBeVisible();
-  await page.screenshot({ path: '../artifacts/compare-pair-desktop.png', fullPage: true });
-  await page.setViewportSize({ width: 390, height: 844 });
-  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
-  await page.screenshot({ path: '../artifacts/compare-pair-mobile.png', fullPage: true });
-  await page.setViewportSize({ width: 1512, height: 1100 });
-  reports.push('Pair charts, anomaly explanation and mobile comparison layout visible');
-  await page.getByRole('navigation', { name: 'Main navigation', exact: true }).getByRole('link', { name: 'Dashboard' }).click();
-  await expect(page.getByRole('heading', { name: 'Gold, in context.', exact: true })).toBeVisible();
-=======
   await expect(page.getByRole('heading', { name: 'Prices side by side' })).toBeVisible();
   assert.equal(await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link').count(), 2);
   for (const [name, heading] of [['Alerts', 'Current alert']]) {
@@ -150,7 +95,6 @@ try {
   }
   await page.getByRole('navigation', { name: 'Main navigation', exact: true }).getByRole('link', { name: 'Monitor' }).click();
   await expect(page.getByRole('heading', { name: 'Monitor', exact: true })).toBeVisible();
->>>>>>> 58455e0ad3016fd77becac210c1dd3a141d3a849
   await loaded();
   await page.getByText('Change research time', { exact: false }).click();
   await page.getByRole('button', { name: 'Apply time' }).click();
@@ -169,26 +113,15 @@ try {
   await page.getByRole('button', { name: 'Retry connection' }).click();
   await loaded();
   reports.push('Error state: failed API clears stale data; Retry restores actual response');
-<<<<<<< HEAD
-  await page.route('**/api/research?*', async route => { await new Promise(resolve => setTimeout(resolve, 900)); await route.continue(); });
-  await page.selectOption('#contract', 'GOLDTEN:2026-12-22:demo-v3');
-=======
   await page.route('**/api/research?*', async route => { await new Promise(resolve => setTimeout(resolve, 900)); await route.fallback(); });
   await page.selectOption('#contract', 'GOLDTEN:2026-12-22:demo-v4');
->>>>>>> 58455e0ad3016fd77becac210c1dd3a141d3a849
   await expect(page.getByLabel('Loading research', { exact: true })).toBeVisible();
   await loaded();
   await page.unroute('**/api/research?*');
   reports.push('Loading state visible while research request is pending');
-<<<<<<< HEAD
-  await page.locator('details > summary').click();
-  await expect(page.getByTestId('api-response')).toContainText('GOLDTEN:2026-12-22:demo-v3');
-  await page.locator('details > summary').click();
-=======
   await page.getByText('Technical details / API response', { exact: true }).click();
   await expect(page.getByTestId('api-response')).toContainText('GOLDTEN:2026-12-22:demo-v4');
   await page.getByText('Technical details / API response', { exact: true }).click();
->>>>>>> 58455e0ad3016fd77becac210c1dd3a141d3a849
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByRole('navigation', { name: 'Main navigation' })).toBeVisible();
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, 'Mobile page must not overflow horizontally');

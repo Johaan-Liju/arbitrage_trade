@@ -20,9 +20,9 @@ Start command:
 python -m uvicorn backend.main:app --host 0.0.0.0 --port "$PORT"
 ```
 
-Health check path: `/api/health`. Use a Python version compatible with the lock; this repository was tested with Python 3.11.9. The app needs no feed credentials to serve its synthetic fixture data.
+Health check path: `/api/health`. Use a Python version compatible with the lock; this repository was tested with Python 3.11.9. The app starts without feed credentials; normal startup serves only real data and does not generate synthetic fixtures.
 
-Wait for the backend to become healthy, then open its actual URL with `/api/health` appended. It should report `status: ok` and the synthetic dataset ready. If that endpoint fails, inspect the backend logs before connecting the frontend. Copy the base URL, with no `/api` suffix.
+Wait for the backend to become healthy, then open its actual URL with `/api/health` appended. It should report `status: ok`; on a fresh checkout the real dataset is `empty`. If that endpoint fails, inspect the backend logs before connecting the frontend. Copy the base URL, with no `/api` suffix.
 
 ## 2. Connect and rebuild the frontend
 
@@ -53,9 +53,10 @@ Choose **Save, rebuild, and deploy** after setting/changing `BACKEND_URL`. Rewri
 
 - Backend `/api/health`: HTTP 200.
 - Frontend `/api/health`: HTTP 200 through the proxy, with the same dataset status.
-- Frontend `/api/contracts?dataset=synthetic`: HTTP 200 and explicit synthetic labeling.
-- Real datasets remain unavailable; connecting a backend does not verify real MCX inputs or enable a real feed. There is no synthetic fallback for real requests.
+- Frontend `/api/contracts?dataset=real`: HTTP 200; an empty contract list is expected until real records are supplied.
+- Frontend `/api/contracts?dataset=synthetic`: HTTP 422; synthetic data is disabled in the normal application.
+- Connecting a backend does not collect or verify MCX inputs or enable a live feed. Local source archives and databases are git-ignored and are not included in a fresh Render checkout. Unverified source quotes remain separate from approved normalized research. There is no synthetic fallback for real requests.
 
-This remains a synthetic demo. SQLite is stored on the backend filesystem; non-persistent hosting does not retain imported observations or simulation ledgers across replacement instances. Fixtures regenerate. There is no authentication or multi-user production hardening.
+SQLite, source archives and paper-session history live on the backend filesystem; non-persistent hosting does not retain them across replacement instances. Supply validated real imports or collected source archives separately to populate the workspace. Source browsing alone does not enable verified signals or historical backtests. There is no authentication or multi-user production hardening.
 
 Official references: [Render FastAPI setup](https://render.com/docs/deploy-fastapi), [port binding](https://render.com/docs/web-services#port-binding), [environment variables and rebuild options](https://render.com/docs/configure-environment-variables).

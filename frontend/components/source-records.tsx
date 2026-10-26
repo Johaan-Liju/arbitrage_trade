@@ -15,6 +15,7 @@ export function SourceRecords({ asOf, refresh }: { asOf: string; refresh: number
   const [error, setError] = useState("");
   useEffect(() => {
     const controller = new AbortController();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Clear records belonging to the previous information cutoff before requesting new ones.
     setSources([]); setError("");
     api<{ sources: Source[] }>(`sources${asOf ? `?${new URLSearchParams({ as_of: asOf })}` : ""}`, controller.signal)
       .then(value => { if (!controller.signal.aborted) setSources(value.sources); })

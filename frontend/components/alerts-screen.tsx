@@ -33,6 +33,7 @@ export function AlertsScreen() {
 
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Read browser URL state after hydration; it is unavailable during prerendering.
     setDataset("real");
     setCutoff(q.get("asOf") || ""); setDraft((q.get("asOf") || "").replace(/Z$/, ""));
     setSession(q.get("paperSession") || ""); setReady(true);
@@ -42,6 +43,7 @@ export function AlertsScreen() {
     if (!ready) return;
     const controller = new AbortController();
     const version = ++generation.current;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Clear the previous session's research while the replacement request is pending.
     setBusy(true); setError(""); setHistory(null); setCatalog(null);
     async function load() {
       try {

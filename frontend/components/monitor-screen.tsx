@@ -34,6 +34,7 @@ export function MonitorScreen() {
   useEffect(() => {
     const query = new URLSearchParams(window.location.search);
     const owner = "real" as Dataset;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- URL and localStorage preferences must be read after browser hydration.
     setDataset(owner); setWatched(saved(owner)); setSelected(query.get("contract") || "");
     setCutoff(query.get("asOf") || ""); setDraft((query.get("asOf") || "").replace(/Z$/, "")); setReady(true);
   }, []);
@@ -41,6 +42,7 @@ export function MonitorScreen() {
   useEffect(() => {
     if (!ready) return;
     const controller = new AbortController();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Invalidate prices from the previous selection before loading its replacement.
     setBusy(true); setData(null); setError(""); setConnected(null);
     api<{ status: string }>("health", controller.signal).then(r => { if (!controller.signal.aborted) setConnected(r.status === "ok"); }).catch(() => { if (!controller.signal.aborted) setConnected(false); });
     async function load() {

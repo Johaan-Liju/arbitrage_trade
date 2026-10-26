@@ -1,15 +1,4 @@
 import type { Contract, Price } from "./types";
-<<<<<<< HEAD
-export type PairEvent = {
-  trading_date: string; decision_at: string; normalized_a: number; normalized_b: number;
-  raw_pair_spread: number; expected_basis: number | null; residual_spread: number | null;
-  residual_mean: number | null; residual_std: number | null; baseline: number | null;
-  difference: number | null; z_score: number | null; upper_z: number; lower_z: number;
-  status: string; reason: string; history_count: number; quality_reasons: string[];
-  a: Price; b: Price; age_hours: number;
-};
-export type PairResult = {
-=======
 export type SignalStatus = "Investigate" | "No signal" | "Insufficient data";
 export type PairEvent = {
   trading_date: string; decision_at: string; normalized_a: number; normalized_b: number;
@@ -21,24 +10,9 @@ export type PairEvent = {
 };
 export type PairResult = { basis_differences: {field: string; left: unknown; right: unknown}[]; normalization_issues: {trading_date: string; code: string; reason: string}[];
   pair_id: string; status: SignalStatus; reason: string;
->>>>>>> 58455e0ad3016fd77becac210c1dd3a141d3a849
   dataset: string; label: string; as_of: string; spec_a: Contract; spec_b: Contract;
   alignment: string; expiry_difference_days: number; cautions: string[];
   method: { lookback: number; min_observations: number; entry_z: number; basis: string };
   history: PairEvent[]; latest: PairEvent | null;
   quality: { missing_dates: { trading_date: string; reason: string }[]; calendar: string; no_forward_fill: boolean };
 };
-<<<<<<< HEAD
-export type Leg = { symbol: string; expiry: string; spec_version: string; side: string; lots: number; grams: number;
-  entry_quote: number; exit_quote: number; entry_notional: number; exit_notional: number;
-  entry_fee: number; exit_fee: number; entry_slippage: number; exit_slippage: number; gross_pnl: number };
-export type Trade = { signal_date: string; entry_date: string; exit_signal_date: string; exit_date: string;
-  signal_available_at: string; exit_signal_available_at: string; entry_reason: string; exit_reason: string;
-  legs: Leg[]; gross_pnl: number; fees: number; slippage: number; net_pnl: number; directional_pnl_per_1_inr_999_g: number };
-export type BacktestResult = { run_id: string; label: string; status: string; number_of_trades: number;
-  net_pnl: number | null; realized_net_pnl: number; gross_pnl: number; fees: number; slippage: number; max_drawdown: number | null;
-  safe_exit_date: string; lots_a: number; lots_b: number; reason: string; assumptions: string[];
-  trades: Trade[]; open_position: object | null; rejections: { trading_date: string; action: string; reason: string }[];
-  equity_curve: { trading_date: string; equity: number | null; net_pnl: number | null; drawdown: number | null; reason: string }[] };
-=======
->>>>>>> 58455e0ad3016fd77becac210c1dd3a141d3a849

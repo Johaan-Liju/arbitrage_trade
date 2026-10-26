@@ -1,0 +1,4 @@
+# The registered evaluation fingerprints these two source files byte-for-byte.
+# Preserve the LF bytes used to generate the report on every checkout platform.
+backend/opportunity.py text eol=lf
+backend/opportunity_evaluation.py text eol=lf

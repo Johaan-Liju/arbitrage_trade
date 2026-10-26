@@ -3,30 +3,6 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 import json
 from pathlib import Path
-<<<<<<< HEAD
-import json
-from hashlib import sha256
-
-from fastapi import FastAPI, HTTPException
-import pandas as pd
-from pydantic import BaseModel, ConfigDict, Field
-
-from .domain import DEFAULT_AS_OF, DISCLAIMER, utc, normalize
-from .store import SYNTHETIC_DB, connection, seed, save_run
-from .analytics import comparisons, replay, WINDOW, THRESHOLD
-from .pairs import PairRequest, load_pair, pair_history
-from .backtest import BacktestRequest, simulate
-from .ingestion import ingest
-
-
-class IngestRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    dataset: str = "synthetic"
-    csv_text: str = Field(max_length=5_000_000)
-    as_of: str
-    expected_dates: list[str] | None = None
-    dry_run: bool = True
-=======
 import sqlite3
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
@@ -43,7 +19,6 @@ from . import alerts
 from . import source_alerts
 from .public_sources import catalog as source_catalog, ROOT as SOURCE_ROOT
 from .source_workspace import snapshot as source_snapshot
->>>>>>> 58455e0ad3016fd77becac210c1dd3a141d3a849
 
 
 class IngestRequest(BaseModel):
@@ -67,11 +42,7 @@ def create_app(db_path: Path = SYNTHETIC_DB, real_db_path: Path = REAL_DB, alert
             seed(paths["synthetic"])
         yield
 
-<<<<<<< HEAD
-    app = FastAPI(title="GoldLens", version="0.3.0", lifespan=lifespan)
-=======
     app = FastAPI(title="GoldLens", version="0.4.0", lifespan=lifespan)
->>>>>>> 58455e0ad3016fd77becac210c1dd3a141d3a849
 
     def dataset_path(dataset):
         if dataset not in paths:
@@ -102,49 +73,6 @@ def create_app(db_path: Path = SYNTHETIC_DB, real_db_path: Path = REAL_DB, alert
 
     @app.get("/api/health")
     def health():
-<<<<<<< HEAD
-        with connection(db_path) as db:
-            count = db.execute("SELECT count(*) FROM prices").fetchone()[0]
-        return {"status": "ok", "app": "GoldLens", "version": "0.3.0", "storage": "SQLite", "datasets": {"synthetic": "ready", "real": "not configured"}, "observations": count}
-
-    @app.post("/api/pair")
-    def pair(request: PairRequest):
-        dataset_check(request.dataset)
-        try:
-            with connection(db_path) as db:
-                specs, histories = load_pair(db,request)
-                result = pair_history(specs,histories,request)
-                payload = json.dumps({"request":request.model_dump(),"result":result},sort_keys=True)
-                key = sha256(payload.encode()).hexdigest()
-                db.execute("INSERT OR IGNORE INTO signals VALUES (?,?,?)",(key,request.dataset,payload))
-                return result
-        except ValueError as error:
-            raise HTTPException(422,str(error)) from error
-
-    @app.post("/backtest")
-    @app.post("/api/backtest")
-    def backtest(request: BacktestRequest):
-        dataset_check(request.dataset)
-        try:
-            with connection(db_path) as db:
-                specs, histories = load_pair(db,request)
-                result = simulate(pair_history(specs,histories,request),request)
-                save_run(db,result)
-                return result
-        except ValueError as error:
-            raise HTTPException(422,str(error)) from error
-
-    @app.post("/api/ingest")
-    def csv_ingest(request: IngestRequest):
-        dataset_check(request.dataset)
-        cutoff(request.as_of)
-        try:
-            with connection(db_path) as db:
-                specs = [dict(s) for s in db.execute("SELECT * FROM specs WHERE dataset=?",(request.dataset,))]
-                return ingest(db,request.csv_text,specs,request.expected_dates,request.as_of,request.dry_run)
-        except ValueError as error:
-            raise HTTPException(422,str(error)) from error
-=======
         if real_only:
             return {"status": "ok", "app": "GoldLens", "version": "0.4.0", "storage": "SQLite",
                     "datasets": {"real": "imported; validated on request" if paths["real"].exists() else "source quotes" if source_catalog(cutoff(None), source_root)["sources"] else "empty"}}
@@ -161,7 +89,6 @@ def create_app(db_path: Path = SYNTHETIC_DB, real_db_path: Path = REAL_DB, alert
             return source_catalog(as_of, source_root)
         except (ValueError, KeyError, OSError) as error:
             raise HTTPException(409, "Source archive unavailable or invalid") from error
->>>>>>> 58455e0ad3016fd77becac210c1dd3a141d3a849
 
     @app.get("/api/contracts")
     def contracts(dataset: str = "real" if real_only else "synthetic", as_of: str | None = None):
@@ -169,10 +96,6 @@ def create_app(db_path: Path = SYNTHETIC_DB, real_db_path: Path = REAL_DB, alert
         current = state(dataset, as_of)
         return {"dataset": dataset, "label": dataset.upper(), "as_of": as_of, "default_as_of": as_of,
                 "contracts": current["contracts"], "issues": current["issues"], "disclaimer": disclaimer(dataset)}
-
-    @app.get("/api/spec-evidence")
-    def spec_evidence():
-        return json.loads((Path(__file__).resolve().parents[1] / "docs/evidence/mcx-specs-2026-10-24.json").read_text())
 
     @app.get("/api/research")
     def research(contract_id: str, as_of: str, dataset: str = "real" if real_only else "synthetic"):
@@ -217,25 +140,6 @@ def create_app(db_path: Path = SYNTHETIC_DB, real_db_path: Path = REAL_DB, alert
     @app.get("/api/alerts/catalog")
     def alert_catalog(dataset: str = Query(default="real" if real_only else "synthetic", pattern="^(synthetic|real)$"), as_of: str | None = None):
         as_of = cutoff(as_of)
-<<<<<<< HEAD
-        with connection(db_path) as db:
-            result = db.execute("SELECT * FROM specs WHERE contract_id=? AND dataset=? AND available_at<=?", (contract_id, dataset, as_of)).fetchone()
-            if result is None:
-                raise HTTPException(404, "Contract specification not available at this cutoff")
-            spec = dict(result)
-            frame = pd.read_sql_query("SELECT * FROM prices WHERE contract_id=? AND dataset=? AND symbol=? AND expiry=? AND spec_version=? AND observed_at<=? AND available_at<=? AND trading_date<=? ORDER BY trading_date", db,
-                                      params=(contract_id, dataset, spec["symbol"], spec["expiry"], spec["spec_version"], as_of, as_of, as_of[:10]))
-        records = [{**r,"normalized_999_per_g":normalize(r["price"],spec)} for r in frame.to_dict(orient="records")]
-        latest = records[-1] if records else None
-        mean = round(float(frame.price.tail(5).mean()), 2) if records else None
-        change = round((records[-1]["price"] / records[-2]["price"] - 1) * 100, 3) if len(records) >= 2 else None
-        with connection(db_path) as db:
-            compare, signals = comparisons(db, spec, as_of, latest)
-        return {"dataset": dataset, "label": "SYNTHETIC", "as_of": as_of, "spec": spec,
-                "prices": records, "latest": latest, "metrics": {"mean_5": mean, "change_pct": change, "count": len(records)},
-                "compare": compare, "signals": signals, "signal_method": {"window": WINDOW, "threshold_pct": THRESHOLD},
-                "backtest": replay(frame, spec), "disclaimer": DISCLAIMER}
-=======
         if real_only and dataset == "real":
             return source_alerts.catalog(state(dataset, as_of))
         return alert_response(alerts.catalog, dataset_path(dataset), dataset, as_of)
@@ -331,7 +235,6 @@ def create_app(db_path: Path = SYNTHETIC_DB, real_db_path: Path = REAL_DB, alert
     @app.get("/api/spec-evidence")
     def spec_evidence():
         return json.loads((Path(__file__).resolve().parents[1] / "docs/evidence/mcx-specs-2026-10-24.json").read_text())
->>>>>>> 58455e0ad3016fd77becac210c1dd3a141d3a849
 
     return app
 

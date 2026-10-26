@@ -376,7 +376,6 @@ No live REA tools or MCP reload tool are exposed to this chat. Configuration and
 - Requested local commit prepared with message `GoldLens runnable MVP`; no push or deployment.
 - First `git add .` / `git commit -m "GoldLens runnable MVP"` attempt was blocked because sandbox permissions make `.git` read-only (`index.lock: Permission denied`). Retried with repository metadata write access; this is the user-requested local commit only.
 
-<<<<<<< HEAD
 ## Acceptance checklist recheck — 2026-10-24
 
 Reviewed application commit `8ac8885` against the user's eight acceptance requirements. No application code changed during this check.
@@ -455,7 +454,7 @@ git diff --check
 ```
 
 Unresolved: hosted end-to-end validation requires the backend service to be created and this local change to reach the deployed revision. Real MCX datasets remain disabled. Official Render references are linked in RENDER_SETUP.md.
-=======
+
 
 ## 2026-10-25 ? Contract normalization and exact-expiry integration
 
@@ -797,4 +796,24 @@ Validation:
 - `git diff --check`: passed (line-ending warnings only).
 
 Remaining limitation: this restores source-data browsing and paper-session workflows, not validated normalized spreads, profitable signals or historical backtests. Those still require a complete verified reference timeline/calendar, historical availability, liquidity/cost evidence and real-data model evaluation. No validation gate was relaxed and synthetic data remains disabled in the normal app.
->>>>>>> 58455e0ad3016fd77becac210c1dd3a141d3a849
+
+## 2026-10-26 - Repair committed merge conflicts blocking Render builds
+
+Observed: merge commit `c0cb108` had a clean Git working tree but contained unresolved conflict markers in 21 tracked files. Render's `npm --prefix frontend ci` failed parsing `frontend/package.json` at `<<<<<<< HEAD`. Backend modules, components, tests and documentation were also affected. Comparing the resolved incoming blocks with parent `58455e0` confirmed that they belong to the newer real-only Monitor/Alerts implementation; the older blocks belonged to the retired synthetic MVP. A duplicate specification-evidence route was introduced outside the conflict blocks.
+
+Decisions: retain the newer implementation and its tests, preserve both branches' build-log history, remove the duplicate route, and retain `BACKEND_URL` configuration and deployment-aware API error text along with structured validation errors. Correct README/Render instructions to describe real-only startup and empty data on a fresh checkout. No synthetic substitution or real-data validation bypass was added.
+
+Additional validation findings: the registered evaluation's implementation hash matched LF source bytes exactly, while the Windows CRLF checkout did not. Added narrow `.gitattributes` rules for `backend/opportunity.py` and `backend/opportunity_evaluation.py` and restored their LF bytes. Model code, report and hash-validation logic are unchanged. Lint also identified eight existing effect state-reset errors and one missing dependency. Added the missing pair-effect dependency and documented line-specific lint exceptions for browser-only hydration and intentional clearing of stale research while requests change; no global lint rule was disabled and no new deferred state-reset timing was introduced.
+
+Validation commands and actual results:
+
+- `git grep -n -E '^(<<<<<<<|=======|>>>>>>>)' -- .`: final exit 1 with no matches (expected for a clean scan).
+- `node -e "const fs=require('node:fs'); for(const p of ['package.json','package-lock.json','frontend/package.json','frontend/package-lock.json']) JSON.parse(fs.readFileSync(p,'utf8')); const p=require('./frontend/package.json'), l=require('./frontend/package-lock.json').packages['']; for(const k of ['dependencies','devDependencies']) if(JSON.stringify(p[k])!==JSON.stringify(l[k])) throw Error(k+' mismatch'); console.log('PASS: JSON and frontend lock dependencies');"`: exit 0, JSON parses and frontend dependency declarations match the lockfile.
+- `.venv\Scripts\python.exe -m pytest backend/tests -q`: initial restricted run showed evaluation mismatch failures and stalled at the first TestClient test; interrupted. `.venv\Scripts\python.exe -m pytest backend/tests/test_alerts.py -x -q` isolated `EVALUATION_MISMATCH` (1 failed), diagnosed as CRLF byte conversion.
+- `.venv\Scripts\python.exe -m pytest backend/tests -q --maxfail=5`: after preserving LF bytes, restricted run passed the first 16 tests but stalled at TestClient; interrupted. Approved unsandboxed retry: **173 passed, 1 upstream Starlette/httpx deprecation warning, 21.16s, exit 0**.
+- `npm.cmd --prefix frontend run lint`: initially 8 errors and 1 warning; final exit 0 after the scoped changes described above. Intermediate diagnostic command `npm.cmd --prefix frontend run lint -- --format json --output-file ../.lint-repair.json` captured the same issues; temporary diagnostic file removed.
+- `npm.cmd --prefix frontend run typecheck`: final exit 0.
+- `npm.cmd --prefix frontend run build`: initial post-conflict build exit 0. After lint edits, sandbox rebuild failed with EPERM creating `.next/static/chunks/app`; approved unsandboxed retry **exit 0**, including compilation, TypeScript and prerendering `/`, `/_not-found` and `/alerts`.
+- `git diff --check`: exit 0, informational LF/CRLF notice only.
+
+Limits: validation used installed project-local dependencies; a fresh network `npm ci` and browser interaction suite were not run in this repair. The build command in Render is already appropriate; it needs the repaired source revision. No commit, push, deployment, backend-service creation or source-data upload was performed. A separately hosted backend and a frontend rebuild with its `BACKEND_URL` are still required. Git-ignored real source archives are absent from fresh hosted checkouts; API health alone does not imply populated or verified market data. Earlier acceptance results in this log apply to their recorded revisions and are not a new acceptance audit of the changed product scope.
