@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Three-minute offline demo
 
 Before starting: install dependencies once, `npm.cmd --prefix frontend run build`, then `npm.cmd run local`. Open http://127.0.0.1:3000. Default cutoff is 2026-10-23T18:00:00Z. No internet/feed is required after setup.
@@ -18,3 +19,12 @@ Before starting: install dependencies once, `npm.cmd --prefix frontend run build
 - Gate 4 anomaly change: `python -m backend.demo_gates` compares fixtures with injected anomaly 0 and 140 without modifying published observations; status and explanation change.
 - Gate 5: same command prints accepted, calendar-rejected and high-threshold no-trade reports; tests verify per-leg costs and missing-fill handling.
 - Browser QA uses a fresh automated Edge profile, never personal browser data. Screenshots go to ignored `artifacts/`.
+=======
+# GoldLens demo (active v4)
+
+1. Prices: select GOLDTEN / 2026-11-20 / demo-v4. Read the sticky SYNTHETIC disclosure. Hover across the chart; date/price stays in a fixed readout. Inspect quote source, observation time and availability.
+2. Compare prices: choose GOLDGUINEA / 2026-11-20 as B. Trace quoted INR / quotation grams * 999 / purity per mille. GOLDM has a 10g quote and 100g lot; they are different concepts. Read unsupported exact-expiry alternatives and delivery/settlement differences. Matching expiry does not imply interchangeable contracts.
+3. Price signals: inspect Investigate and its reason. Set entry threshold 100 for No signal. Use cutoff 2026-09-02T18:00:00Z for Insufficient data during warm-up. Return to 2026-10-23T18:00:00Z. Prior mean and sample standard deviation exclude the current spread; no machine learning is claimed.
+4. Paired backtest: retain GOLDTEN/GOLDGUINEA and set holding limit 3. Run with hypothetical brokerage/slippage and optional per-leg costs. Check 4 ten-gram versus 5 eight-gram whole lots, later entry/exit observations, itemized costs, residual exposure and gross minus costs minus slippage equals net. Open positions and skipped/unfilled orders remain separate.
+5. Prices: change cutoff to 2026-09-01T16:00:00Z, before publication. No future prices appear. Scroll desktop/mobile and confirm the banner remains visible without blocking chart interaction. No orders are sent; these results do not establish executable arbitrage.
+>>>>>>> 58455e0ad3016fd77becac210c1dd3a141d3a849

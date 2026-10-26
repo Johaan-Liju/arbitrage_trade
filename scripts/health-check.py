@@ -13,20 +13,25 @@ def get(url):
 for base in ("http://127.0.0.1:8000", "http://127.0.0.1:3000"):
     status, health = get(base + "/api/health")
     assert status == 200 and health["status"] == "ok"
-    assert health["datasets"]["real"] == "not configured"
-    print(f"PASS {base}/api/health -> {status}; SQLite; {health['observations']} synthetic observations")
+    assert "real" in health["datasets"]
+    print(f"PASS {base}/api/health -> {status}; real data: {health['datasets']['real']}")
 
 base = "http://127.0.0.1:3000"
 _, catalog = get(base + "/api/contracts")
+<<<<<<< HEAD
 assert len(catalog["contracts"]) == 8
 params = {"contract_id": "GOLDPETAL:2026-11-30:demo-v3", "as_of": catalog["default_as_of"], "dataset": "synthetic"}
+=======
+assert catalog["dataset"] == "real" and catalog["contracts"]
+params = {"contract_id": catalog["contracts"][0]["contract_id"], "as_of": catalog["default_as_of"], "dataset": "real"}
+>>>>>>> 58455e0ad3016fd77becac210c1dd3a141d3a849
 _, snapshot = get(base + "/api/research?" + urlencode(params))
-assert snapshot["spec"]["symbol"] == "GOLDPETAL" and snapshot["metrics"]["count"] == 39
-print("PASS frontend proxy -> FastAPI research: GOLDPETAL, 39 observations, SYNTHETIC")
-params["dataset"] = "real"
+assert snapshot["dataset"] == "real" and snapshot["metrics"]["count"] > 0
+print(f"PASS frontend proxy -> real research: {snapshot['spec']['symbol']}, {snapshot['metrics']['count']} observations")
+params["dataset"] = "synthetic"
 try:
     get(base + "/api/research?" + urlencode(params))
-    raise AssertionError("Real dataset unexpectedly returned data")
+    raise AssertionError("Synthetic dataset unexpectedly returned data")
 except HTTPError as error:
-    assert error.code == 404
-    print("PASS real dataset -> 404; no fallback")
+    assert error.code == 422
+    print("PASS synthetic dataset disabled")

@@ -1,0 +1,115 @@
+import { chromium, expect } from '@playwright/test';
+import assert from 'node:assert/strict';
+import { mkdir, writeFile } from 'node:fs/promises';
+
+const base = process.env.GOLDLENS_TEST_URL || 'http://127.0.0.1:3000';
+const backend = process.env.GOLDLENS_TEST_API || base;
+const cutoff = '2026-10-23T18:00:00Z';
+const browser = await chromium.launch({ channel: process.env.BROWSER_CHANNEL || 'msedge', headless: true });
+const reports = [], errors = [];
+try {
+  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  page.on('pageerror', e => errors.push(e.message));
+  if (process.env.GOLDLENS_TEST_API) await page.route('**/api/**', async route => {
+    const url = new URL(route.request().url());
+    await route.fulfill({ response: await route.fetch({ url: `${backend}${url.pathname}${url.search}` }) });
+  });
+  const loaded = () => expect(page.getByTestId('selected-contract')).toBeVisible();
+  await page.goto(`${base}/?dataset=synthetic&asOf=${cutoff}`);
+  await loaded();
+  await expect(page.getByText('SYNTHETIC DATA', { exact: true })).toBeVisible();
+  assert.equal(await page.getByRole('navigation').getByRole('link').count(), 2);
+  assert.equal(await page.getByTestId('watchlist').locator('tbody tr').count(), 8);
+  for (const symbol of ['GOLDTEN', 'GOLDGUINEA', 'GOLDPETAL', 'GOLDM']) {
+    const response = page.waitForResponse(r => r.url().includes('/api/monitor?') && r.status() === 200);
+    await page.getByLabel('Symbol', { exact: true }).selectOption(symbol);
+    const data = await (await response).json();
+    await loaded();
+    const selected = page.getByTestId('selected-contract');
+    await expect(selected).toContainText(`${symbol} / 2026-11-20`);
+    await expect(selected).toContainText(data.selected.latest.price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+    await expect(selected).toContainText(data.selected.latest.source);
+    await expect(selected).toContainText(data.selected.latest.observed_at.replace('T', ' ').replace('Z', ' UTC'));
+    await expect(selected).toContainText('demo-v4');
+    const watch = page.getByTestId('watchlist');
+    for (const row of data.watchlist.filter(r => r.spread !== null)) {
+      await expect(watch.locator('tbody tr').filter({ hasText: `${row.contract.symbol} / ${row.contract.expiry}` })).toContainText(Number(row.spread).toLocaleString('en-IN', { minimumFractionDigits: 4, maximumFractionDigits: 4 }));
+    }
+  }
+  reports.push('Four symbols: source API prices, provenance, spec version and backend spreads visible');
+  await page.getByTestId('watchlist').getByRole('button', { name: 'GOLDM / 2026-11-20', exact: true }).click();
+  await loaded();
+  const nextExpiry = await page.getByLabel('Exact expiry', { exact: true }).locator('option').last().getAttribute('value');
+  // Options without explicit values use their text as the selected value.
+  const expiry = nextExpiry || await page.getByLabel('Exact expiry', { exact: true }).locator('option').last().textContent();
+  await page.getByLabel('Exact expiry', { exact: true }).selectOption(expiry);
+  await loaded();
+  await expect(page.getByTestId('selected-contract')).toContainText(`GOLDM / ${expiry}`);
+  await page.getByRole('button', { name: `Remove GOLDM ${expiry} demo-v4`, exact: true }).click();
+  assert.equal(await page.getByTestId('watchlist').locator('tbody tr').count(), 7);
+  await page.reload(); await loaded();
+  assert.equal(await page.getByTestId('watchlist').locator('tbody tr').count(), 7);
+  await page.getByRole('button', { name: 'Add selected contract', exact: true }).click();
+  assert.equal(await page.getByTestId('watchlist').locator('tbody tr').count(), 8);
+  reports.push('Exact-expiry selection and persistent watchlist remove/add work');
+  await page.getByLabel('Stale after', { exact: true }).selectOption('24');
+  await loaded();
+  await page.getByLabel('Information cutoff (UTC)', { exact: true }).fill('2026-10-27T18:00');
+  await page.getByRole('button', { name: 'Apply time', exact: true }).click(); await loaded();
+  await expect(page.getByTestId('selected-contract')).toContainText('STALE');
+  for (const row of await page.getByTestId('watchlist').locator('tbody tr').all()) await expect(row.locator('td').nth(2)).toContainText('Unavailable');
+  await page.getByLabel('Information cutoff (UTC)', { exact: true }).fill('2026-08-31T18:00');
+  await page.getByRole('button', { name: 'Apply time', exact: true }).click(); await loaded();
+  await expect(page.getByTestId('selected-contract')).toContainText('MISSING');
+  await expect(page.getByTestId('price-chart-hit-area')).toHaveCount(0);
+  reports.push('Stale observations marked, stale spreads withheld, missing data has no chart');
+  await page.getByLabel('Information cutoff (UTC)', { exact: true }).fill('2026-10-23T18:00');
+  await page.getByRole('button', { name: 'Apply time', exact: true }).click(); await loaded();
+  await page.route('**/api/monitor?*', route => route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ detail: 'Test source unavailable' }) }));
+  await page.getByRole('button', { name: 'Refresh data', exact: true }).click();
+  await expect(page.getByRole('main').getByRole('alert')).toContainText('Test source unavailable');
+  await expect(page.getByTestId('selected-contract')).toHaveCount(0);
+  await expect(page.getByRole('status')).toContainText('API: Connected');
+  await page.unroute('**/api/monitor?*');
+  await page.getByRole('button', { name: 'Retry data', exact: true }).click(); await loaded();
+  reports.push('Source failure clears results while API connection remains independently visible; retry recovers');
+  await page.route('**/api/monitor?*', async route => {
+    const url = new URL(route.request().url());
+    const response = await route.fetch({ url: `${backend}${url.pathname}${url.search}` }); const body = await response.json();
+    body.selected.latest.volume = null; body.selected.latest.open_interest = null;
+    await route.fulfill({ json: body });
+  });
+  await page.getByRole('button', { name: 'Refresh data', exact: true }).click(); await loaded();
+  await expect(page.getByTestId('source-volume')).toHaveCount(0);
+  await expect(page.getByTestId('source-oi')).toHaveCount(0);
+  await expect(page.getByTestId('selected-contract')).toContainText('Source did not supply liquidity information');
+  await page.unroute('**/api/monitor?*');
+  reports.push('Controlled missing-liquidity response hides volume/OI metrics rather than inventing zeros');
+  await page.setViewportSize({ width: 390, height: 844 });
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+  const hit = page.getByTestId('price-chart-hit-area'); await hit.scrollIntoViewIfNeeded();
+  const box = await hit.boundingBox(); await page.mouse.move(box.x + box.width / 2, box.y + 5);
+  await expect(page.getByTestId('price-chart-readout')).not.toHaveText('Move across the chart to inspect a price');
+  await mkdir('../artifacts', { recursive: true });
+  await page.screenshot({ path: '../artifacts/monitor-mobile.png', fullPage: true });
+  reports.push('Mobile 390px: no page overflow; selected chart remains interactive');
+  const requests = [];
+  page.on('request', r => { if (/\/api\/(contracts|monitor)\?/.test(r.url())) requests.push(new URL(r.url()).searchParams.get('dataset')); });
+  await page.getByLabel('Dataset', { exact: true }).selectOption('real');
+  await expect(page.getByRole('main').getByRole('alert')).toContainText('DATASET_UNAVAILABLE');
+  await expect(page.getByTestId('selected-contract')).toHaveCount(0);
+  await expect(page.getByText('IMPORTED REAL DATA', { exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('main').getByRole('alert')).toContainText('DATASET_UNAVAILABLE');
+  await expect(page.getByLabel('Dataset', { exact: true })).toHaveValue('real');
+  await page.getByRole('navigation').getByRole('link', { name: 'Alerts', exact: true }).click();
+  await expect(page.getByRole('main').getByRole('alert')).toContainText('DATASET_UNAVAILABLE');
+  await page.getByRole('navigation').getByRole('link', { name: 'Monitor', exact: false }).click();
+  await expect(page.getByRole('main').getByRole('alert')).toContainText('DATASET_UNAVAILABLE');
+  assert.ok(requests.length > 0 && requests.every(d => d === 'real'));
+  reports.push('Missing real data stays real across screens, with no synthetic requests or results');
+  assert.deepEqual(errors, []);
+  await page.unrouteAll({ behavior: 'wait' });
+  await writeFile('../artifacts/monitor-results.json', JSON.stringify(reports, null, 2));
+  for (const report of reports) console.log(`PASS ${report}`);
+} finally { await browser.close(); }

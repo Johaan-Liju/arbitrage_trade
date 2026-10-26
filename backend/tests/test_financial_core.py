@@ -8,10 +8,17 @@ import pytest
 from fastapi.testclient import TestClient
 from backend.domain import DEFAULT_AS_OF, normalize, validate_price, Spec
 from backend.store import fixtures, connection, seed
+<<<<<<< HEAD
 from backend.ingestion import COLUMNS, validate_csv
 from backend.pairs import PairRequest, pair_history
 from backend.backtest import BacktestRequest, simulate, lot_match
 from backend.main import create_app
+=======
+from backend.legacy_ingestion import COLUMNS, validate_csv
+from backend.pairs import PairRequest, pair_history
+from backend.backtest import BacktestRequest, simulate, lot_match
+from backend.legacy_api import create_app
+>>>>>>> 58455e0ad3016fd77becac210c1dd3a141d3a849
 
 
 def example(anomaly=140, **options):
@@ -95,7 +102,11 @@ def test_pair_prior_only_future_late_and_reversed_sign():
     # Late old observation cannot alter a decision preceding its availability.
     trimmed=pair_history(specs,[leg[1:] for leg in rows],req)
     assert late_result['history'][1:-1]==trimmed['history'][:-1]
+<<<<<<< HEAD
     reverse=pair_history(specs[::-1],rows[::-1],req)
+=======
+    reverse=pair_history(specs[::-1],rows[::-1],req.model_copy(update={'contract_a':req.contract_b,'contract_b':req.contract_a}))
+>>>>>>> 58455e0ad3016fd77becac210c1dd3a141d3a849
     for a,b in zip(pair['history'],reverse['history']):
         assert a['raw_pair_spread']==pytest.approx(-b['raw_pair_spread'])
         if a['z_score'] is not None:
@@ -110,6 +121,7 @@ def test_signal_flat_insufficient_missing_stale_and_threshold():
         for row in leg:
             row['price']=75000 if row['symbol']=='GOLDTEN' else 60000
     pair=pair_history(specs,flat,req)
+<<<<<<< HEAD
     assert pair['latest']['status']=='NO_SIGNAL' and pair['latest']['z_score'] is None
     assert pair_history(specs,[leg[:4] for leg in rows],req)['latest']['status']=='REJECTED'  # stale at final cutoff
     assert pair['history'][0]['status']=='INSUFFICIENT_DATA'
@@ -119,6 +131,17 @@ def test_signal_flat_insufficient_missing_stale_and_threshold():
     boundary=pair_history(specs,rows,req.model_copy(update={'entry_z':z}))
     above=pair_history(specs,rows,req.model_copy(update={'entry_z':z+1e-6}))
     assert boundary['latest']['status']=='INVESTIGATE' and above['latest']['status']=='NO_SIGNAL'
+=======
+    assert pair['latest']['status']=='Insufficient data' and pair['latest']['z_score'] is None
+    assert pair_history(specs,[leg[:4] for leg in rows],req)['latest']['status']=='Insufficient data'  # stale at final cutoff
+    assert pair['history'][0]['status']=='Insufficient data'
+    missing=pair_history(specs,[rows[0],rows[1][:-1]],req)
+    assert missing['quality']['missing_dates'] and missing['latest']['status']=='Insufficient data'
+    pair=pair_history(specs,rows,req); z=abs(pair['latest']['z_score'])
+    boundary=pair_history(specs,rows,req.model_copy(update={'entry_z':z}))
+    above=pair_history(specs,rows,req.model_copy(update={'entry_z':z+1e-6}))
+    assert boundary['latest']['status']=='Investigate' and above['latest']['status']=='No signal'
+>>>>>>> 58455e0ad3016fd77becac210c1dd3a141d3a849
     assert pair['alignment']=='CALENDAR_BASIS_DIFFERENCE'
     assert pair['spec_a']['expiry']!=pair['spec_b']['expiry']
     duplicate=[rows[0]+[rows[0][0]],rows[1]]
@@ -129,8 +152,13 @@ def test_signal_flat_insufficient_missing_stale_and_threshold():
 def test_manual_anomaly_change_explanation_gate():
     specs,rows,req=example(0); normal=pair_history(specs,rows,req)['latest']
     specs,rows,req=example(140); anomaly=pair_history(specs,rows,req)['latest']
+<<<<<<< HEAD
     assert normal['status']=='NO_SIGNAL'
     assert anomaly['status']=='INVESTIGATE'
+=======
+    assert normal['status']=='No signal'
+    assert anomaly['status']=='Investigate'
+>>>>>>> 58455e0ad3016fd77becac210c1dd3a141d3a849
     assert normal['reason']!=anomaly['reason']
 
 
@@ -230,7 +258,11 @@ def test_independent_two_leg_pnl_cost_and_sensitivity_arithmetic():
     pair=pair_history(specs,rows,req)
     events=copy.deepcopy(pair['history'][:3])
     for i,e in enumerate(events):
+<<<<<<< HEAD
         e.update(status='INVESTIGATE' if i==0 else 'NO_SIGNAL',z_score=3 if i==0 else 0,quality_reasons=[])
+=======
+        e.update(status='Investigate' if i==0 else 'No signal',z_score=3 if i==0 else 0,quality_reasons=[])
+>>>>>>> 58455e0ad3016fd77becac210c1dd3a141d3a849
         e['a']['price']=[75000,75100,75000][i]
         e['b']['price']=[60000,60000,60080][i]
     pair['history']=events
@@ -249,7 +281,11 @@ def test_no_entry_after_tender_or_unavailable_spec():
     specs,rows,req=example()
     specs[0]['valid_to']='2026-09-15'
     pair=pair_history(specs,rows,req)
+<<<<<<< HEAD
     assert pair['latest']['status']=='REJECTED'
+=======
+    assert pair['latest']['status']=='Insufficient data'
+>>>>>>> 58455e0ad3016fd77becac210c1dd3a141d3a849
     assert 'Stale' in pair['latest']['reason']
     result=simulate(pair,req)
     assert not result['trades']

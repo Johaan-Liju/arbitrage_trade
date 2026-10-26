@@ -1,2 +1,2 @@
-import { ResearchShell } from "@/components/research-shell";
-export default function Page() { return <ResearchShell view="dashboard" />; }
+import { MonitorScreen } from "@/components/monitor-screen";
+export default function Page() { return <MonitorScreen />; }

@@ -10,5 +10,6 @@ frontend/.next/
 frontend/next-env.d.ts
 frontend/*.tsbuildinfo
 data/synthetic/*.sqlite3*
+data/notifications/
 artifacts/
 .npm-cache/

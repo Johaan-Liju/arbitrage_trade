@@ -1,0 +1,15 @@
+{
+  "dataset": "synthetic",
+  "as_of": "2026-10-23T18:00:00Z",
+  "pairs": [
+    {
+      "contract_a": "GOLDTEN:2026-11-20:demo-v4",
+      "contract_b": "GOLDGUINEA:2026-11-20:demo-v4",
+      "calendar_a": "synthetic-sessions-v4",
+      "calendar_b": "synthetic-sessions-v4"
+    }
+  ],
+  "initial_history_sessions": 20,
+  "test_sessions": 5,
+  "embargo_sessions": 6
+}
