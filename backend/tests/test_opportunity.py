@@ -41,7 +41,7 @@ def prediction_part(record):
 def test_real_file_absent_no_fallback_and_api_validation(data, tmp_path):
     path, _, _ = data
     before = sha256(path.read_bytes()).hexdigest()
-    with TestClient(create_app(path, tmp_path / "real.sqlite3")) as client:
+    with TestClient(create_app(path, tmp_path / "real.sqlite3", real_only=False)) as client:
         response = client.post("/api/opportunities/evaluate", json=REQUEST)
         assert response.status_code == 200
         report = response.json()

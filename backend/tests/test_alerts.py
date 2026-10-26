@@ -201,7 +201,7 @@ def test_source_loss_suppresses_existing_notification(env):
 
 def test_api_validation_isolation_and_unknown_ids(env, tmp_path):
     real = tmp_path / "real" / "missing.sqlite3"
-    with TestClient(create_app(env[0], real, env[1])) as client:
+    with TestClient(create_app(env[0], real, env[1], real_only=False)) as client:
         assert client.get("/api/alerts/catalog?dataset=synthetic").status_code == 200
         assert client.get("/api/alerts/catalog?dataset=real").status_code == 404
         assert client.post("/api/alerts/sessions", json={"dataset": "real"}).status_code == 404

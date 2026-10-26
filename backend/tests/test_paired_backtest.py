@@ -137,7 +137,7 @@ def test_exit_cannot_fill_past_deadline_and_unavailable_fill_is_not_used():
 def test_simulation_removed_from_active_api(tmp_path):
     from fastapi.testclient import TestClient
     from backend.main import create_app
-    with TestClient(create_app(tmp_path / 's.sqlite3', tmp_path / 'r.sqlite3')) as client:
+    with TestClient(create_app(tmp_path / 's.sqlite3', tmp_path / 'r.sqlite3', real_only=False)) as client:
         for route in ('/api/backtest', '/backtest'):
             assert client.post(route, json={}).status_code == 404
         assert '/api/ingest' in client.get('/openapi.json').json()['paths']

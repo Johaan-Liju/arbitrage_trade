@@ -16,7 +16,7 @@ A = "GOLDM:2026-11-20:demo-v4"
 
 @pytest.fixture
 def client(tmp_path):
-    with TestClient(create_app(tmp_path / "s.sqlite3", tmp_path / "r.sqlite3")) as value:
+    with TestClient(create_app(tmp_path / "s.sqlite3", tmp_path / "r.sqlite3", real_only=False)) as value:
         yield value
 
 
@@ -103,7 +103,7 @@ def test_optional_liquidity_survives_ingestion_and_blocks_alerts(tmp_path, monke
     # This deliberately different invented batch is not the published demo seed.
     # Read its validated import without invoking the published seed integrity check.
     monkeypatch.setattr("backend.main.seed", lambda path: None)
-    with TestClient(create_app(path, tmp_path / "real.sqlite3")) as client:
+    with TestClient(create_app(path, tmp_path / "real.sqlite3", real_only=False)) as client:
         data = get(client).json()
         assert data["selected"]["latest"]["volume"] is None
         assert data["selected"]["latest"]["open_interest"] is None

@@ -670,3 +670,50 @@ Validation and actual outcomes:
 - Stopped only the owned processes on ports 3013 and 8013.
 
 Limits: the evaluation is one synthetic expiry; the model had zero held-out alerts, and the baseline had one. User-chosen thresholds have no measured performance. Cooldown precedence behind threshold and dedup checks is covered by backend tests, not the browser. Outcomes use daily proxies, not fills. ESLint remains unavailable. Normal port 8000/3000 services were not restarted; rebuild them to see this build.
+
+## 2026-10-25 - Round-2 presentation (10 slides)
+Built GoldLens_round2.pptx from the Hack in Hills template in GoldLens_hih.pptx (original untouched). Slide 2 is the problem statement. All diagrams are native editable shapes; the screenshots are real captures of the running prototype. Numbers come from docs/OPPORTUNITY_EVALUATION.md, docs/CONTRACT_MATRIX.md and this log. The old deck listed SciPy, SQLAlchemy and Recharts, none of which are project dependencies, so the new architecture slide omits them.
+Commands and results:
+- `.\.venv\Scripts\python.exe -m pip install python-pptx`: installed 1.0.2 into the project venv only.
+- `node scripts/capture-deck-screens.mjs` (from frontend, test services on 8014/3014, since stopped): captured monitor, alerts and alert-card images into artifacts/deck.
+- `.\.venv\Scripts\python.exe -I scripts/build-deck.py GoldLens_hih.pptx artifacts/old-ppt-extract/x/ppt/media artifacts/deck GoldLens_round2.pptx`: saved 10 slides.
+- `powershell -File scripts/render-pptx.ps1` (PowerPoint export to PNG): reviewed every slide. Fixed a slide-5 overlap, a white negative chart bar and small fonts. The final caption-wording rebuild was not re-rendered.
+Limits: the team must present only what it understands. Speaker notes are included as prompts.
+
+## 2026-10-26 - Real-only app and public source collection
+
+Observed facts: TinyFish CLI 0.50.1 search and direct fetch each returned `{"error":"fetch failed"}`, including approved runs outside the sandbox. The user then authorized an alternate scraper. Direct public Upstox downloads succeeded. Four content-addressed HTML/JSON snapshots under `data/real/sources/{GOLDM,GOLDTEN,GOLDGUINEA,GOLDPETAL}` contain 20 historical closes each (80 total). The collector is accurately labeled `python-urllib`. No credentials or private data were read. MCX Gold Mini and Gold Ten specification PDFs were found through the official Gold product page, but a complete verified registry, exact official listings, session calendar and historical observation/publication evidence were not established.
+
+Design decisions: normal `create_app()` now accepts only real datasets and never seeds synthetic data; isolated backend tests explicitly opt into fixtures with `real_only=False`. UI dataset selectors expose real data only. `/api/sources` and the Monitor source panel display archived source quotes separately from validated research. Source expiry dates are parsed explicitly, prices use the source's explicit `priceDivisor`, terms get content-addressed unverified specification IDs, and availability begins at retrieval. Missing quotation weight and historical publication time are not invented. No source record was promoted into the model database; model predictions/backtests remain blocked. Existing synthetic archives and legacy test generators are retained, inaccessible in the normal application.
+
+Validation commands and actual results:
+- `tinyfish.cmd search query "site:mcxindia.com gold mini bhavcopy historical data contract specification 2026"`: exit 1, fetch failed in sandbox and approved retry.
+- `tinyfish.cmd fetch content get "https://www.mcxindia.com/market-data/bhavcopy" --per-url-timeout-ms 20000`: exit 1, fetch failed in sandbox and approved retry.
+- `Invoke-WebRequest -Uri 'https://upstox.com/commodity-market-trading/mcx-goldm-price/' -OutFile 'data/real/sources/upstox-goldm.html' -UseBasicParsing`: sandbox connection failure; approved retry exit 0.
+- `.venv/Scripts/python.exe -m backend.public_sources GOLDM GOLDTEN GOLDGUINEA GOLDPETAL`: sandbox WinError 10013 for each symbol; approved retry exit 0, 20 rows per symbol, model_ready false for all four.
+- `.venv/Scripts/python.exe -m pytest backend/tests/test_real_only.py backend/tests/test_normalized_research.py backend/tests/test_monitor.py backend/tests/test_opportunity.py backend/tests/test_alerts.py backend/tests/test_paired_backtest.py -q`: first 84 passed/2 failed due to unknown-dataset HTTP 422 versus existing 404 contract; restored 404. Rerun: 86 passed in 26.07s, one existing Starlette/httpx deprecation warning.
+- `.venv/Scripts/python.exe -m pytest backend/tests/test_public_sources.py backend/tests/test_real_only.py -q`: 5 passed in 1.42s, same warning. Covers source scaling, exact expiry parsing, identity mismatch rejection, unknown units and exclusion of future collection snapshots.
+- `npm.cmd --prefix frontend run typecheck`: passed, including the new source panel.
+- `npm.cmd --prefix frontend run lint`: unavailable; eslint executable is missing in the existing installation. No dependency installation was performed.
+- `npm.cmd --prefix frontend run build`: passed, routes `/`, `/_not-found`, `/alerts`.
+- `node scripts/real-sources-check.mjs` from frontend: first failed mobile width assertion after successfully checking four source cards, 80 API records and real-only selector. Added minimum-width constraints to the source grid; final result recorded below.
+
+Unresolved: these are collected, unverified source records, not validated model inputs or evidence of predictive performance. Historical backtesting cannot treat retrieval-time data as historically available. Source archives remain project-local and git-ignored. Normal services were restarted on loopback ports 8000 and 3000 to serve this work.
+
+Final verification: second `npm.cmd --prefix frontend run build` passed after the mobile fix. A browser run before restarting the rebuilt production process failed to hydrate its source cards (stale assets); restarted the owned local Next process. Final `node scripts/real-sources-check.mjs` from frontend passed: four real source cards, 80 API records, real-only selector, blocked-model disclosure, 390px mobile width, historical cutoff exclusion, no uncaught page errors. Backend serves loopback 8000 and frontend loopback 3000. No deployment or push occurred.
+
+## 2026-10-26 - Restore the real-data workspace after the source-only regression
+
+Observed cause: port 8000 was no longer serving; frontend `/api/health` returned HTTP 500 through the failed proxy. Separately, normal monitor/contracts/research routes required a validated SQLite database although the collected real records lived only in the source archive. The real alert catalog additionally rejected all requests without a registered evaluation, preventing even session/history interaction.
+
+Changes: connected the real source archive to the existing contracts, monitor and research views when no validated real database exists. Source mode is explicit; a corrupt existing database still fails closed instead of switching stores. Restored raw-price charts, quote changes/means, symbol/expiry/version selection, watchlists, cutoff selection and refresh. Missing normalization is null, never zero. Source-record age uses the trading-date start as a conservative bound, not the recent collection timestamp. Added current-time recovery for old links. Restored real paper-session creation, rules, scans, deduplication and persisted history with explicit model abstention and no invented opportunities. Real-data screens no longer claim synthetic evaluation metrics or an evaluated real model. Updated health checks for the real-only app. Started the backend outside the sandbox and restarted the existing local frontend, both hidden and loopback-only.
+
+Validation:
+- `.venv/Scripts/python.exe -m pytest backend/tests/test_source_workspace.py backend/tests/test_real_only.py backend/tests/test_public_sources.py backend/tests/test_normalized_research.py backend/tests/test_monitor.py backend/tests/test_alerts.py -q`: 51 passed in 25.13s; one existing Starlette/httpx deprecation warning. Tests cover source-backed monitor/research, conservative age, time exclusion, real session persistence, repeated scans, non-monotonic rejection, and no source fallback for a corrupted database.
+- `npm.cmd --prefix frontend run typecheck`: passed.
+- `npm.cmd --prefix frontend run build`: passed twice (final rebuild includes accurate pending-evaluation policy label), routes `/`, `/_not-found`, `/alerts`.
+- `.venv/Scripts/python.exe scripts/health-check.py`: passed twice against running ports 8000 and 3000; both health endpoints 200, real GOLDM research has 20 records, synthetic requests return 422.
+- `node scripts/real-workspace-check.mjs` (frontend working directory): first run passed interactions but failed a zero-alert-role assertion because Next's empty accessibility route announcer has role=alert. Inspected its DOM, then scoped the assertion to main. Final run passed API/proxy, all four selectors/charts, watchlist removal/addition, refresh, historical cutoff/current-time recovery, persisted real alert sessions/scans/dedup/history, 390px mobile width, and zero page errors. Browser verification created real paper sessions containing abstention scans, not fake market data.
+- `git diff --check`: passed (line-ending warnings only).
+
+Remaining limitation: this restores source-data browsing and paper-session workflows, not validated normalized spreads, profitable signals or historical backtests. Those still require a complete verified reference timeline/calendar, historical availability, liquidity/cost evidence and real-data model evaluation. No validation gate was relaxed and synthetic data remains disabled in the normal app.

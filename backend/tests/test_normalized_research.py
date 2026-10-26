@@ -36,7 +36,7 @@ def batch():
 @pytest.fixture
 def app(tmp_path):
     path = tmp_path / "synthetic.sqlite3"
-    with TestClient(create_app(path, tmp_path / "real.sqlite3")) as client:
+    with TestClient(create_app(path, tmp_path / "real.sqlite3", real_only=False)) as client:
         yield client, path
 
 
@@ -69,7 +69,7 @@ def test_unverified_real_and_cross_dataset_fail_closed(batch, tmp_path):
     real = registry.specs[0].model_copy(update={"dataset": "real", "verification_status": "UNVERIFIED"})
     with pytest.raises(ReferenceFailure, match="not approved"):
         normalize_999(Decimal(74625), real, "2026-10-23", DEFAULT_AS_OF)
-    with TestClient(create_app(tmp_path / "s.sqlite3", tmp_path / "r.sqlite3")) as client:
+    with TestClient(create_app(tmp_path / "s.sqlite3", tmp_path / "r.sqlite3", real_only=False)) as client:
         assert get(client, dataset="real").status_code == 404
         assert not (tmp_path / "r.sqlite3").exists()
         assert get(client, dataset="unknown").status_code == 404
