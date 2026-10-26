@@ -233,3 +233,132 @@ On the user's subsequent request to set up MCP, verified `codex mcp get rea`: re
 `node scripts/check-rea-mcp.mjs 'C:\Users\Johaan Liju\AppData\Local\npm-cache\_npx\a1722018f28f9df2\node_modules\rea-agents\scripts\rea.mjs'` → exit 0; initialize OK (REA 6.7.0, protocol 2025-03-26); tools/list OK, 207 tools, binary_session present. Owned test process stopped. This registration depends on the existing npm cache entry; do not clear it without updating the path. No native engines installed.
 
 No live REA tools or MCP reload tool are exposed to this chat. Configuration and standalone server are verified; restart Codex to attach the server to a fresh session.
+## Financial core, paired signals and hypothetical replay — 2026-10-24 (Asia/Calcutta)
+
+### Observed starting state and source research
+
+- Clean Git worktree at start (`git status --short` produced no entries). Existing Next/FastAPI slice had single-series deviations and no fill/P&L engine. Neither `.venv` nor frontend `node_modules` existed on this checkout.
+- Read root and frontend AGENTS.md. The required bundled Next guide was initially absent because packages were absent; after installation read `frontend/node_modules/next/dist/docs/01-app/01-getting-started/05-server-and-client-components.md` and the bundled ESLint guide before frontend implementation/configuration.
+- Used official MCX product index and the four original linked PDFs. Recorded verified field values, PDF scope and unresolved effective/availability chronology in CONTRACT_MATRIX.md and the immutable dated JSON evidence snapshot. No third-party private data, credentials or personal browser profile inspected.
+
+### Design decisions
+
+- New `goldlens-v3.sqlite3` synthetic storage and `demo-v3` terms preserve older published fixture databases. Canonical instruments, spec versions, exact contracts, daily prices, signals, backtest runs and trades; compatibility read views for old endpoint queries. Immutable spec/contract/price triggers.
+- Strict CSV schema, all-or-nothing validation/import, source/time provenance, normalized output, explicit calendar checks. No inferred real expiries or operational MCX versions. Real requests remain blocked.
+- Backend computes normalization, prior-only raw basis and residual statistics, reasoned statuses, chronological eligibility gates, integer lot quantities, raw-quote P&L, per-leg expenses, equity and drawdown. Frontend only renders backend values and chart geometry.
+- Daily-settlement hypothetical execution; later date and later observed time required. Calendar acknowledgement, missing/stale data, liquidity, lot caps and safe exits enforced. Unresolved positions/marks withhold full performance.
+- Added pair charts, quality cards, original-price ledger, configurable replay controls and leg-level reports. Removed obsolete UI single-series Signals/Backtest components; old descriptive API fields remain documented for compatibility.
+- Frontend TypeScript changed from 7.0.2 to 6.0.3 because installed typescript-eslint explicitly rejects TS 7. ESLint 10.0.0 and Next config 16.4.3 are project-local. Python lock regenerated for installed Python 3.11.9; NumPy resolved 2.4.6 rather than the inherited 2.5.4.
+
+### Commands, failures and repairs actually observed
+
+1. `python -m venv .venv; .\.venv\Scripts\python.exe -m pip install -r backend/requirements.lock.txt` — venv created; restricted-network install failed DNS resolution. `npm.cmd --prefix frontend ci --cache .npm-cache` — initial restricted-network attempt failed with npm `Exit handler never called`.
+2. With network access: `.\.venv\Scripts\python.exe -m pip install -r backend/requirements.txt` — exit 0, all Python dependencies installed locally. `npm.cmd --prefix frontend ci --cache .npm-cache --fetch-retries=0` — registry ECONNRESET; retry `npm.cmd --prefix frontend ci --cache .npm-cache --fetch-retries=3 --maxsockets=3 --no-audit --no-fund` — exit 0, 58 packages added. TLS verification was not disabled.
+3. `.\.venv\Scripts\python.exe -m backend.store` — exit 0, 8 contracts / 312 observations in synthetic v3 database.
+4. Initial `pytest` runs under restricted Windows execution stalled in asyncio socketpair. Diagnostic command `.\.venv\Scripts\python.exe -m pytest backend/tests/test_financial_core.py::test_backtest_api_storage_validation_and_real_block -vv -s -o faulthandler_timeout=10` showed socket.accept during loop initialization. Stopped owned stalled pytest processes and reran with local socket access; no application workaround or disabled test.
+5. `.\.venv\Scripts\python.exe -m pytest backend/tests -q` — first complete run: 55 passed, 2 failed. Both inherited late-arrival tests omitted the newly required later ingestion timestamp. Repaired fixtures; next run 57 passed. Added independent P&L, no-future-prefix, stale-spec and atomic-import/evidence tests: final run **61 passed, 1 warning, 8.78s, exit 0**. The warning is upstream Starlette's httpx deprecation, not a failed assertion.
+6. `.\.venv\Scripts\python.exe -m pip freeze | Set-Content -Encoding ascii backend\requirements.lock.txt` — recorded actual environment.
+7. `npm.cmd --prefix frontend install --save-dev eslint eslint-config-next --cache .npm-cache --maxsockets=3 --no-audit --no-fund` — exit 0, initially resolved ESLint 9.39.5 (deprecated). `npm.cmd --prefix frontend run lint` then failed explicitly on TypeScript 7 incompatibility. Range-based TS/ESLint update entered npm resolution loop; stopped that owned npm process. `npm.cmd --prefix frontend install --save-dev typescript@6.0.3 eslint@10.0.0 --cache .npm-cache --maxsockets=3 --no-audit --no-fund` — exit 0. Peer warnings from plugins remain installation warnings.
+8. Lint then reported two unused imports and four synchronous effect state resets. Removed unused imports and moved resets into event handlers (no disabled rules). Final `npm.cmd --prefix frontend run lint` — **exit 0, no errors/warnings**.
+9. `npm.cmd --prefix frontend run typecheck` — **exit 0** with TypeScript 6.0.3.
+10. `npm.cmd --prefix frontend run build` — **exit 0**, Next 16.4.3 webpack compiled successfully, TypeScript passed, all 6 static pages generated. Routes `/`, `/_not-found`, `/backtest`, `/compare`, `/signals`.
+11. `.\.venv\Scripts\python.exe -m backend.demo_gates` — exit 0. Anomaly 0: NO_SIGNAL, |z|=1.353; anomaly 140: INVESTIGATE, |z|=10.391. Accepted scenario: COMPLETE, one trade, gross ₹5,649.85, fees ₹619.27, slippage ₹1,238.54, net ₹3,792.03. Signal 2026-10-05, entry 2026-10-06, exit 2026-10-15. Calendar-rejected: 0 trades / 5 reasons / ₹0 net. High threshold: 0 trades / ₹0 net. These are deliberately synthetic results.
+12. `.\.venv\Scripts\python.exe scripts/start-local.py` — launched both loopback services. `.\.venv\Scripts\python.exe scripts/health-check.py` — exit 0; backend and frontend health 200, 312 synthetic observations, GOLDPETAL proxy research 39 rows, real request 404.
+13. Initial browser-test source write hit Windows cp1252 UnicodeEncodeError; restored the test from Git and rewrote UTF-8 explicitly. The empty-script invocation was NOT counted as a pass. `npm.cmd --prefix frontend run test:browser` subsequently ran full assertions: **exit 0, 16 PASS reports**, covering four instrument selections, all views, accepted/rejected/no-trade replay, pair anomaly/charts, empty/loading/error/retry, mobile overflow and no uncaught browser errors.
+14. Manually inspected actual screenshots `artifacts/compare-pair-desktop.png`, `artifacts/backtest-accepted-desktop.png`, `artifacts/compare-pair-mobile.png`. Exact dates, synthetic warnings, signal reasons and costs were visible; mobile layout had no page overflow. Improved small mobile chart labels with horizontally scrollable minimum-width plots. Rebuilt and linted after this change.
+
+### Unresolved questions / unsupported claims
+
+- Exact effective-date and original availability chronology for real specs, verified exact contract expiries/tender dates/calendars and complete superseding circular coverage remain UNVERIFIED. Real analytics deliberately blocked; evidence fields alone do not bypass that gate.
+- Settlements, synthetic liquidity and configured expenses do not prove executable fills, margin sufficiency, tax completeness, neutrality, strategy profitability or arbitrage. These limitations are in the UI and ASSUMPTIONS.md.
+- No remote deployment, push, invasive system installation or trade execution. Dependencies remain project-local; both services bind only to loopback.
+
+### Final rerun and delivery checks
+
+- `npm.cmd run local` — README single-command startup succeeded with both services on 127.0.0.1. `scripts/start-local.py` was used to stop the previously owned QA services before rebuilding; no unrelated processes were stopped.
+- `.\.venv\Scripts\python.exe scripts/health-check.py` — final exit 0, all four smoke reports pass against the rebuilt app and final backend.
+- `npm.cmd --prefix frontend run test:browser` — final exit 0, all 16 workflow reports pass after lint-driven state-reset and mobile chart changes. Re-inspected updated mobile screenshot: chart content scrolls inside its card without page overflow.
+- `git diff --check` — exit 0; only Git's LF-to-CRLF informational notices.
+- `node --test test/goldlens.test.js` — restricted first run 4 passed / 1 failed (`fetch failed`, local socket restriction). Rerun with loopback access: **5 passed / 0 failed / exit 0**. Legacy Node source unchanged.
+- Final backend: **61 passed**; frontend lint/typecheck/build: **passed**; browser workflows: **16 PASS reports**; API smoke: **passed**; legacy: **5 passed**. No critical failures remain. Upstream Starlette httpx deprecation is the only pytest warning.
+- Requested local commit prepared with message `GoldLens runnable MVP`; no push or deployment.
+- First `git add .` / `git commit -m "GoldLens runnable MVP"` attempt was blocked because sandbox permissions make `.git` read-only (`index.lock: Permission denied`). Retried with repository metadata write access; this is the user-requested local commit only.
+
+## Acceptance checklist recheck — 2026-10-24
+
+Reviewed application commit `8ac8885` against the user's eight acceptance requirements. No application code changed during this check.
+
+Exact validation commands and actual results:
+
+- `.\.venv\Scripts\python.exe scripts/health-check.py` — exit 0; both 127.0.0.1 services HTTP 200, frontend proxy research 39 rows, real dataset HTTP 404. README `npm.cmd run local` startup was already verified for this unchanged commit; services were healthy and were not interrupted/restarted for this recheck.
+- `.\.venv\Scripts\python.exe -m pytest backend/tests -q` — exit 0; **61 passed, 1 upstream Starlette httpx deprecation warning, 27.98s**.
+- `npm.cmd --prefix frontend run test:browser` — exit 0; **16 PASS reports**, including exact GOLDTEN/GOLDGUINEA selection, calendar rejection, accepted trade, no-trade case, charts, ledger, errors/retry and mobile overflow.
+- `npm.cmd --prefix frontend run lint` — exit 0, no lint errors/warnings.
+- `npm.cmd --prefix frontend run typecheck` — exit 0.
+- `.\.venv\Scripts\python.exe -m backend.demo_gates` — exit 0; anomaly 0 NO_SIGNAL; anomaly 140 INVESTIGATE; accepted 1 completed hypothetical trade (net INR 3792.03); rejected and high-threshold scenarios 0 trades, net 0.
+- `git rev-parse --short HEAD` — `8ac8885`; initial `git status --short` was empty. Existing successful production build belongs to this unchanged application commit; build was not rerun while serving it.
+- `Test-Path docs\ASSUMPTIONS.md`, `Test-Path docs\DEMO_SCRIPT.md`, `Test-Path docs\evidence\mcx-specs-2026-10-24.json` — all True. Read README and CONTRACT_MATRIX; original PDF source links and unresolved facts remain documented.
+
+| Requirement | Assessment for the synthetic MVP |
+|---|---|
+| README startup, no unavailable runtime services | PASS; both loopback services healthy; package installation initially needs internet |
+| GOLDTEN/GOLDGUINEA exact expiry and date alignment | PASS; explicit 2026-11-24 / 2026-11-27 demo expiries, same trading-date join, calendar difference disclosed |
+| Synthetic/MCX distinction | PASS; prominent labels, separate storage, real requests fail closed |
+| Normalization provenance | PASS; original price, source, exact contract/spec version, quote grams and purity retained |
+| Signal history/shift/null/zero-variance guards | PASS; tested prior-only two-stage history and explicit statuses |
+| Backtest chronology, two-leg costs, safe exits | PASS within documented settlement-proxy convention; unsafe/missing fills rejected, unresolved positions disclosed |
+| Visible ledger and rejection reasons | PASS; fresh browser run confirmed both, including accepted and rejected scenarios |
+| Tests, limitations, sources and demo script | PASS; current reruns above and all referenced docs present |
+
+Qualification: these are synthetic-MVP acceptance results, not certification of live trading readiness. Exact real MCX effective/availability chronology, contract/tender dates, calendars and superseding coverage remain UNVERIFIED. Initial installs require registry access. Daily settlements are hypothetical fills; full taxes, margin funding, delivery and execution risks are not modeled. No real data, guaranteed returns or guaranteed liquidation is claimed.
+
+## Render API connection troubleshooting — 2026-10-26
+
+Observed: user reports HTTP 500 and confirms no FastAPI service exists on Render. Local Next config hard-coded 127.0.0.1:8000. Hosted revision/logs were not independently verified; HTTP 500 alone does not identify every possible upstream error.
+
+Decision: optional server-side BACKEND_URL origin, validated HTTP(S) without path/query/credentials; local default and startup stay loopback-only. Replaced local-port-only API error text. Added docs/RENDER_SETUP.md with backend creation, health check, frontend rebuild and data/persistence caveats. Existing staged changes preserved; no push, commit or deployment.
+
+Actual validation:
+
+- `npm.cmd --prefix frontend run lint` — exit 0.
+- `npm.cmd --prefix frontend run typecheck` — exit 0.
+- Initial Node stdin config probe reused one process: localhost passed, remote assertion failed because Next cached the configuration. Repeated in separate Node processes, matching build-process behavior: both destinations and all three invalid-origin cases passed, exit 0. No network request to the placeholder host.
+- `git diff --check` — exit 0, line-ending informational notice only.
+- First build-log append used nested PowerShell here-strings and failed before writing the file; repaired using apply_patch.
+
+Exact successful config probe (PowerShell, repo root):
+
+```powershell
+$proxyProbe = @'
+const assert = require('node:assert/strict');
+const path = require('node:path');
+const loadConfig = require('./frontend/node_modules/next/dist/server/config').default;
+const { PHASE_PRODUCTION_BUILD } = require('./frontend/node_modules/next/constants');
+(async () => {
+  if (process.env.GOLDLENS_EXPECTED === 'reject') {
+    await assert.rejects(() => loadConfig(PHASE_PRODUCTION_BUILD, path.resolve('frontend')), /BACKEND_URL must/);
+    console.log('PASS invalid origin rejected');
+  } else {
+    const config = await loadConfig(PHASE_PRODUCTION_BUILD, path.resolve('frontend'));
+    assert.equal((await config.rewrites())[0].destination, process.env.GOLDLENS_EXPECTED);
+    console.log('PASS proxy destination: ' + process.env.GOLDLENS_EXPECTED);
+  }
+})().catch(error => { console.error(error); process.exitCode = 1; });
+'@
+$proxyCases = @(
+ @{ Origin=$null; Expected='http://127.0.0.1:8000/api/:path*' },
+ @{ Origin='https://backend.example.com/'; Expected='https://backend.example.com/api/:path*' },
+ @{ Origin='https://backend.example.com/api'; Expected='reject' },
+ @{ Origin='ftp://backend.example.com'; Expected='reject' },
+ @{ Origin='https://backend.example.com/?query=value'; Expected='reject' }
+)
+foreach ($proxyCase in $proxyCases) {
+ $env:BACKEND_URL = $proxyCase.Origin
+ $env:GOLDLENS_EXPECTED = $proxyCase.Expected
+ $proxyProbe | node
+ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+}
+git diff --check
+```
+
+Unresolved: hosted end-to-end validation requires the backend service to be created and this local change to reach the deployed revision. Real MCX datasets remain disabled. Official Render references are linked in RENDER_SETUP.md.
